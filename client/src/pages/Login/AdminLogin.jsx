@@ -1,0 +1,78 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const AdminLogin = () => {
+  const [rollNumber, setRollNumber] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:3001/login/admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rollNumber, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Login failed");
+      } else {
+        // Save token/data if needed
+        localStorage.setItem("admin", JSON.stringify(data));
+        navigate("/admin/dashboard"); // redirect after login
+      }
+    } catch (err) {
+      setError("Something went wrong");
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm"
+      >
+        <h2 className="text-xl font-bold mb-4 text-center">Admin Login</h2>
+
+        <input
+          type="text"
+          placeholder="Email"
+          value={rollNumber}
+          onChange={(e) => setRollNumber(e.target.value)}
+          className="w-full p-2 mb-3 border rounded"
+          required
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-2 mb-4 border rounded"
+          required
+        />
+
+        {error && (
+          <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+        )}
+
+        <button
+          type="submit"
+          className="bg-red-500 text-white w-full py-2 rounded hover:bg-green-600"
+        >
+          Login
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default AdminLogin;

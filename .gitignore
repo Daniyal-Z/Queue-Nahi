@@ -125,3 +125,16 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+### Project-Specific Additions ###
+# TailwindCSS
+.tailwindcss
+
+# MSSQL Local Dev Files
+*.mdf
+*.ldf
+*.bak
+
+# IDE (Optional)
+.vscode/
+.idea/
