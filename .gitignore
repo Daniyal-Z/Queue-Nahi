@@ -141,4 +141,4 @@ dist
 
 # .gitignore
 .env
-./server/dbConn.js  # Optional (if you keep it as a fallback)
+dbConn.js
