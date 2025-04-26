@@ -53,20 +53,26 @@ router.post('/signup', async (req, res) => {
 
     const pool = await poolPromise;
 
-    const result = await pool.request()
+    await pool.request()
       .input("Email", sql.VarChar, email)
       .input("Name", sql.VarChar, name)
       .input("Password", sql.VarChar, pass)
       .execute("SignupManager");
 
-      res.status(200).json({
-        id: manager.Mgr_ID,
-        name: manager.Name,
-        email: manager.Email,
-        type: type
-      });
-    
-    res.status(201).json({ message: "Manager registered successfully" });
+    // Then fetch the newly created manager
+    const managerResult = await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("SELECT Mgr_ID, Name, Email FROM Managers WHERE Email = @Email");
+
+    const manager = managerResult.recordset[0];
+
+    res.status(201).json({
+      id: manager.Mgr_ID,
+      name: manager.Name,
+      email: manager.Email,
+      type: "manager",  // Explicitly setting the type
+      message: "Manager registered successfully"
+    });
   } catch (error) {
     console.error("Error during signup:", error);
 

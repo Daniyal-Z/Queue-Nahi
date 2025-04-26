@@ -234,15 +234,19 @@ router.post('/signup', async (req, res) => {
       .input("Password", sql.VarChar, pass)
       .execute("SignupStudent");
 
-      const student = result.recordset[0];
+      // Now fetch the created student to return their details
+      const studentResult = await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("SELECT Roll_No, Name, Email FROM Students WHERE Email = @Email");
 
-      res.status(200).json({
+      const student = studentResult.recordset[0];
+
+      res.status(201).json({
         id: student.Roll_No,
         name: student.Name,
         email: student.Email,
-      });
-
-    res.status(201).json({ message: "Student registered successfully" });
+        message: "Student registered successfully"
+  });
   } catch (error) {
     console.error("Error during signup:", error);
 
