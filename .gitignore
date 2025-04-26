@@ -138,3 +138,7 @@ dist
 # IDE (Optional)
 .vscode/
 .idea/
+
+# .gitignore
+.env
+server/dbConn.js  # Optional (if you keep it as a fallback)
