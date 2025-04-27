@@ -6,6 +6,12 @@ const jwt = require('jsonwebtoken');
 const { authenticate } = require('../middleware/auth'); 
 
 router.get('/verify', authenticate, (req, res) => {
+  if (req.user.role !== 'student') {
+    return res.status(403).json({
+        valid: false,
+        message: 'Student access required'
+    });
+  }
   // If middleware passes, token is valid
   res.status(200).json({ 
     valid: true,
