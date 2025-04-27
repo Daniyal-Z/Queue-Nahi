@@ -5,6 +5,7 @@ import StudentOrdersModal from "./StudentR_OrdersModal";
 import BookCafeModal from "./BookCafeModal";
 import PrintCafeModal from "./PrintCafeModal";
 import GroundsModal from "./GroundsModal";
+import { useAuthVerify } from '../../hooks'; 
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState(null);
@@ -16,43 +17,22 @@ const StudentDashboard = () => {
   const [showGroundsModal, setShowGroundsModal] = useState(false);
   const navigate = useNavigate();
 
+  //auth verif hook
+  useAuthVerify('student');
+
   useEffect(() => {
-    // In your useEffect
-    const verifyAuth = async () => {
+    const storedStudent = localStorage.getItem('student');
+    if (storedStudent) {
       try {
-        const token = localStorage.getItem('access_token');
-        if (!token) throw new Error('No token found');
-
-        const response = await fetch('http://localhost:3001/students/verify', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok || !data.valid) {
-          throw new Error('Session invalid');
-        }
-
-        // Token is valid, proceed
-        const storedStudent = localStorage.getItem('student');
-        if (!storedStudent) throw new Error('No user data');
-        
         setStudent(JSON.parse(storedStudent));
       } catch (err) {
-        // Clear storage and redirect
-        localStorage.removeItem('student');
-        localStorage.removeItem('access_token');
-        navigate('/login/student');
-      } finally {
-        setLoading(false);
+        console.error("Failed to parse student data:", err);
+        handleLogout();
       }
-    };
-
-    verifyAuth();
-  }, [navigate]);
-
+    }
+    setLoading(false);
+  }, []);
+  
   const handleLogout = () => {
     localStorage.removeItem("student");
     localStorage.removeItem("access_token");

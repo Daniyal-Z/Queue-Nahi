@@ -23,7 +23,7 @@ const restaurantMgrRoutes = require('./routes/restaurantMgr');
 //const groundRoutes = require('./routes/groundMgr');
 //const bookRoutes = require('./routes/bookMgr');
 const printRoutes = require('./routes/print');
-const adminRoutes = require('./routes/admin');
+const adminRoutes = require('./routes/admins');
 
 
 app.use('/students', studentsRoutes);
@@ -38,7 +38,7 @@ app.use('/restaurantMgr', restaurantMgrRoutes);
 //app.use('/groundMgr', groundRoutes);
 //app.use('/bookMgr', bookRoutes);
 app.use('/print', printRoutes);
-app.use('/admin', adminRoutes);
+app.use('/admins', adminRoutes);
   
 // Student-Related Views
 // Service Availability Views

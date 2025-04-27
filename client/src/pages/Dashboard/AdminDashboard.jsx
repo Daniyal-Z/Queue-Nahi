@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
+import { useAuthVerify } from '../../hooks'; 
 
 const AdminDashboard = () => {
     const [admin, setAdmin] = useState(null);
@@ -11,38 +12,24 @@ const AdminDashboard = () => {
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
 
+    useAuthVerify('admin');
+  
+    // In ManagerDashboard.js
     useEffect(() => {
-        const verifyAuth = async () => {
-        try {
-            const token = localStorage.getItem('access_token');
-            const adminData = localStorage.getItem('admin');
-            
-            if (!token || !adminData) {
-            throw new Error('Missing authentication');
+          const adminData = localStorage.getItem('admin');
+          
+          if (adminData)
+          {
+            try {
+              setAdmin(JSON.parse(adminData));
             }
-
-            // Verify token with backend
-            const response = await fetch('http://localhost:3001/admin/verify', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-            });
-
-            if (!response.ok) {
-            throw new Error('Invalid session');
-            }
-
-            setAdmin(JSON.parse(adminData));
-        } catch (err) {
-            console.log(err);
-            localStorage.removeItem('admin');
-            localStorage.removeItem('access_token');
-            navigate('/login/admin');
-        }
-        };
-
-        verifyAuth();
-    }, [navigate]);
+            catch (err) {
+              console.error("Failed to parse admin data:", err);
+              handleLogout();
+            }  
+          }
+      }
+    );
 
     const handleLogout = () => {
         localStorage.removeItem("admin");

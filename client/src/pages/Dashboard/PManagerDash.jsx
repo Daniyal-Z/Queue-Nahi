@@ -1,41 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
+import { useAuthVerify } from '../../hooks'; 
 
 const PManagerDashboard = () => {
   const [manager, setManager] = useState(null);
   const navigate = useNavigate();
 
+  useAuthVerify('manager');
+    
+  // In ManagerDashboard.js
   useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
         const managerData = localStorage.getItem('manager');
         
-        if (!token || !managerData) {
-          throw new Error('Missing authentication');
-        }
-
-        // Verify token with backend
-        const response = await fetch('http://localhost:3001/managers/verify', {
-          headers: {
-            'Authorization': `Bearer ${token}`
+        if (managerData)
+        {
+          try {
+            setManager(JSON.parse(managerData));
           }
-        });
-
-        if (!response.ok) {
-          throw new Error('Invalid session');
+          catch (err) {
+            console.error("Failed to parse manager data:", err);
+            handleLogout();
+          }  
         }
-
-        setManager(JSON.parse(managerData));
-      } catch (err) {
-        localStorage.removeItem('manager');
-        localStorage.removeItem('access_token');
-        navigate('/login/manager');
-      }
-    };
-
-    verifyAuth();
-  }, [navigate]);
+    }
+  );
 
   const handleLogout = () => {
     localStorage.removeItem("manager");
