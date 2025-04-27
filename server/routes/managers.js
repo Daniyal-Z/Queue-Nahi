@@ -1,7 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { authenticate } = require('../middleware/auth'); 
 
+router.get('/verify', authenticate, (req, res) => {
+  if (req.user.role !== 'manager') {
+    return res.status(403).json({ valid: false, message: 'Manager access required' });
+  }
+  res.status(200).json({ 
+    valid: true,
+    user: req.user
+  });
+});
 
 // Manager Login
 router.post('/login', async (req, res) => {
@@ -50,33 +62,48 @@ router.post('/login', async (req, res) => {
 router.post('/signup', async (req, res) => {
   try {
     const { email, name, pass } = req.body;
-
     const pool = await poolPromise;
+
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(pass, 10);
 
     await pool.request()
       .input("Email", sql.VarChar, email)
       .input("Name", sql.VarChar, name)
-      .input("Password", sql.VarChar, pass)
+      .input("Password", sql.VarChar, hashedPassword)
       .execute("SignupManager");
 
-    // Then fetch the newly created manager
+    // Fetch created manager
     const managerResult = await pool.request()
       .input("Email", sql.VarChar, email)
       .query("SELECT Mgr_ID, Name, Email FROM Managers WHERE Email = @Email");
 
     const manager = managerResult.recordset[0];
 
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: manager.Mgr_ID,
+        name: manager.Name,
+        email: manager.Email,
+        role: 'manager'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     res.status(201).json({
       id: manager.Mgr_ID,
       name: manager.Name,
       email: manager.Email,
-      type: "manager",  // Explicitly setting the type
+      role: 'manager',
+      token, // Send token to frontend
       message: "Manager registered successfully"
     });
+
   } catch (error) {
     console.error("Error during signup:", error);
 
-    // Check for duplicate email
     if (error.message.includes("Email already registered")) {
       return res.status(400).json({ message: "Email already registered" });
     }

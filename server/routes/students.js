@@ -1,8 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { authenticate } = require('../middleware/auth'); 
 
-
+router.get('/verify', authenticate, (req, res) => {
+  // If middleware passes, token is valid
+  res.status(200).json({ 
+    valid: true,
+    user: {
+      id: req.user.id,
+      name: req.user.name,
+      role: req.user.role
+    }
+  });
+});
 
 // Student Login
 router.post('/login', async (req, res) => {
@@ -225,61 +238,64 @@ router.get('/:id/old-p_orders', async (req, res) => {
 router.post('/signup', async (req, res) => {
   try {
     const { email, name, pass } = req.body;
-
     const pool = await poolPromise;
 
+    // 1. First check if email exists (optional extra check)
+    const exists = await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("SELECT 1 FROM Students WHERE Email = @Email");
+
+    if (exists.recordset.length > 0) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // 2. Hash password before calling stored procedure
+    const hashedPassword = await bcrypt.hash(pass, 10);
+
+    // 3. Call your existing stored procedure with hashed password
     await pool.request()
       .input("Email", sql.VarChar, email)
       .input("Name", sql.VarChar, name)
-      .input("Password", sql.VarChar, pass)
+      .input("Password", sql.VarChar, hashedPassword) // Changed to hashed
       .execute("SignupStudent");
 
-      // Now fetch the created student to return their details
-      const studentResult = await pool.request()
+    // 4. Fetch student details (keeping your existing logic)
+    const studentResult = await pool.request()
       .input("Email", sql.VarChar, email)
       .query("SELECT Roll_No, Name, Email FROM Students WHERE Email = @Email");
 
-      const student = studentResult.recordset[0];
+    const student = studentResult.recordset[0];
 
-      res.status(201).json({
+    // 5. Generate JWT token (new security addition)
+    const token = jwt.sign(
+      {
         id: student.Roll_No,
-        name: student.Name,
+        role: 'student',
         email: student.Email,
-        message: "Student registered successfully"
-  });
+        name: student.Name
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // 6. Return same response format + token
+    res.status(201).json({
+      id: student.Roll_No,
+      name: student.Name,
+      email: student.Email,
+      token, // New field
+      message: "Student registered successfully"
+    });
+
   } catch (error) {
     console.error("Error during signup:", error);
 
-    // Check for duplicate email
+    // Preserve your existing error handling
     if (error.message.includes("Email already registered")) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
     res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-// Update a student
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, rollNumber, department } = req.body;
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('id', sql.Int, id)
-      .input('name', sql.NVarChar, name)
-      .input('rollNumber', sql.NVarChar, rollNumber)
-      .input('department', sql.NVarChar, department)
-      .query('UPDATE Students SET Name = @name, RollNumber = @rollNumber, Department = @department WHERE ID = @id');
-    
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.status(200).json({ message: 'Student updated successfully' });
-  } catch (err) 
-  {
-    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

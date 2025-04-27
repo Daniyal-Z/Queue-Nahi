@@ -11,7 +11,13 @@ const ManagerSignUp = () => {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError("");
-
+  
+    // Basic validation
+    if (pass.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+  
     try {
       const response = await fetch("http://localhost:3001/managers/signup", {
         method: "POST",
@@ -20,18 +26,29 @@ const ManagerSignUp = () => {
         },
         body: JSON.stringify({ name, email, pass }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         setError(data.message || "Sign Up failed");
-      } else {
-        // Save token/data if needed
-        localStorage.setItem("manager", JSON.stringify(data));
-        navigate("/rmanager/dashboard"); // redirect after signup
+        return;
       }
+  
+      // Store manager data and token
+      localStorage.setItem("manager", JSON.stringify({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      }));
+      localStorage.setItem("access_token", data.token);
+      
+      // Redirect to R_Manager dashboard
+      navigate("/rmanager/dashboard");
+  
     } catch (err) {
-      setError("Something went wrong");
+      setError("Network error - please try again later");
+      console.error("Signup error:", err);
     }
   };
 

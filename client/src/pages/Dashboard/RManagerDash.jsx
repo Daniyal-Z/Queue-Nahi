@@ -16,14 +16,38 @@ const ManagerDashboard = () => {
   const [location, setLocation] = useState("");
   const [message, setMessage] = useState("");
 
+  // In ManagerDashboard.js
   useEffect(() => {
-    const stored = localStorage.getItem("manager");
-    if (!stored) {
-      window.location.href = "/manager/login";
-    } else {
-      setManager(JSON.parse(stored));
-    }
-  }, []);
+    const verifyAuth = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const managerData = localStorage.getItem('manager');
+        
+        if (!token || !managerData) {
+          throw new Error('Missing authentication');
+        }
+
+        // Verify token with backend
+        const response = await fetch('http://localhost:3001/managers/verify', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Invalid session');
+        }
+
+        setManager(JSON.parse(managerData));
+      } catch (err) {
+        localStorage.removeItem('manager');
+        localStorage.removeItem('access_token');
+        navigate('/login/manager');
+      }
+    };
+
+    verifyAuth();
+  }, [navigate]);
 
   const handleAddRestaurant = async (e) => {
     e.preventDefault();
