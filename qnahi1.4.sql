@@ -27,7 +27,7 @@ GO
 --    Roll_No INT,
 --    G_ID INT NOT NULL,
 --    B_Time DATETIME NOT NULL,
---    Slot VARCHAR(20) NOT NULL
+--    Slot INT NOT NULL
 --);
 
 ---- 4. Restaurants table
