@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
 
-
+  
 // Get all grounds
 router.get('/', async (req, res) => {
   try {
@@ -132,44 +132,146 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// router.get('/:id/bookings', async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const pool = await poolPromise;
+
+//     const bookingsResult = await pool.request()
+//       .input('gid', sql.Int, id)
+//       .query(`
+//         SELECT 
+//           B.Booking_ID, B.Roll_No, G.Ground_Type, 
+//           S.Day, S.StartTime, S.EndTime, B.B_Time
+//         FROM Booking B
+//         INNER JOIN Slots S ON B.SlotID = S.SlotID
+//         INNER JOIN Grounds G ON S.G_ID = G.G_ID
+//         WHERE G.G_ID = @gid
+//       `);
+
+//     res.json(bookingsResult.recordset);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+
+
+// Get bookings for a ground
+router.get('/:gid/bookings', async (req, res) => {
+  try {
+    const { gid } = req.params;
+    const pool = await poolPromise;
+    const result = await pool.request()
+    .input('groundId', sql.Int, gid)
+    .query(`SELECT B.Booking_ID,B.Roll_No,G.Ground_Type, S.Day, S.StartTime, S.EndTime, S.Status AS Slot_Status, G.G_Status AS Ground_Status, B.B_Time
+    FROM 
+    Booking B
+    INNER JOIN 
+    Slots S ON B.SlotID = S.SlotID
+    INNER JOIN 
+        Grounds G ON S.G_ID = G.G_ID;
+      `);
+  return res.status(200).json(result.recordset);
+
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    return res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
 // Get available slots for a ground
 router.get('/:id/slots', async (req, res) => {
   try {
-    
     const { id } = req.params;
     const pool = await poolPromise;
-     let result = await pool.request().query('SELECT * FROM dbo.Slots')
-    const timingsResult = await pool.request()
-      .input('TypeService', sql.VarChar, 'Ground')
-      .query(`
-        SELECT Opening_Time, Closing_Time 
-        FROM Operational_Timings ot
-        JOIN Type_Service ts ON ot.Type_Service_ID = ts.Type_Service_ID
-        WHERE ts.Type_Service = @TypeService
-      `);
-    
-    if (timingsResult.recordset.length === 0) {
-      return res.status(400).json({ message: 'No operational timings found' });
-    }
-    
+
     const slotsResult = await pool.request()
-      .query('SELECT * FROM Slots');
-    
+      .input('gid', sql.Int, id)
+      .query('SELECT * FROM Slots WHERE G_ID = @gid');
+
     const bookedResult = await pool.request()
       .input('gid', sql.Int, id)
       .query(`
         SELECT SlotID FROM Booking 
         WHERE G_ID = @gid AND B_Time >= CAST(GETDATE() AS DATE)
       `);
-    
+
     const bookedSlots = bookedResult.recordset.map(b => b.SlotID);
     const availableSlots = slotsResult.recordset.filter(slot => 
       !bookedSlots.includes(slot.SlotID)
     );
-    
+
     res.json(availableSlots);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+//delete slot from grounds (ground manager)
+// This route deletes a slot from the database. It first checks if there are any bookings associated with the slot.
+router.delete('/:gid/slots/:slotId', async (req, res) => {
+  try {
+    const { gid, slotId } = req.params;
+
+    const pool = await poolPromise;
+
+    // Directly delete the slot
+    await pool.request()
+      .input('slotId', sql.Int, slotId)
+      .query('DELETE FROM Slots WHERE SlotID = @slotId');
+
+    return res.status(200).json({ 
+      message: 'Slot deleted successfully' 
+    });
+
+  } catch (error) {
+    console.error('Error deleting slot:', error);
+    return res.status(500).json({ 
+      error: 'Failed to delete slot',
+      details: error.message 
+    });
+  }
+});
+router.delete('/bookings/:bookingId', async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const pool = await poolPromise;
+
+    // Delete the booking
+    const result = await pool.request()
+      .input('bookingId', sql.Int, bookingId)
+      .query('DELETE FROM Booking WHERE Booking_ID = @bookingId');
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    return res.status(200).json({ message: 'Booking deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    return res.status(500).json({ 
+      error: 'Failed to delete booking',
+      details: error.message 
+    });
+  }
+});
+
+// Get bookings for a specific user
+router.delete('/bookings/:bookingId', async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input('bookingId', sql.Int, bookingId)
+      .query('DELETE FROM Booking WHERE BookingID = @bookingId');
+
+    return res.status(200).json({ message: 'Booking deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    return res.status(500).json({ error: 'Failed to delete booking' });
   }
 });
 // Add new slot

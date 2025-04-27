@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
+
 const GManagerDashboard = () => {
+  //booking component
+  const [showBookingsModal, setShowBookingsModal] = useState(false);
+  const [bookings, setBookings] = useState([]);
+  const [selectedGroundForBookings, setSelectedGroundForBookings] = useState(null);
   const [manager, setManager] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -27,7 +32,20 @@ const GManagerDashboard = () => {
       setManager(JSON.parse(stored));
     }
   }, []);
-
+  // Fetch bookings for a specific ground
+  const fetchBookings = async (groundId) => {
+    try {
+      const res = await fetch(`http://localhost:3001/grounds/${groundId}/bookings`);
+      const data = await res.json();
+      setBookings(data); 
+      setSelectedGroundForBookings(groundId); // optional
+      setShowBookingsModal(true); // show modal or section
+    } catch (err) {
+      setError('Failed to fetch bookings');
+    }
+  };
+  
+  
   const fetchGrounds = async () => {
     try {
       const res = await fetch("http://localhost:3001/grounds");
@@ -103,6 +121,26 @@ const GManagerDashboard = () => {
       setError(err.message);
     }
   };
+  const handleDeleteBooking = async (bookingId) => {
+    try {
+      if (!window.confirm('Are you sure you want to delete this booking?')) return;
+      
+      const res = await fetch(`http://localhost:3001/grounds/bookings/${bookingId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete booking');
+      }
+      
+      // Refresh the bookings list
+      fetchBookings(selectedGroundForBookings);
+      alert('Booking deleted successfully');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this ground?")) return;
@@ -146,7 +184,46 @@ const GManagerDashboard = () => {
       setError(err.message);
     }
   };
+  /// Delete Slot function
+  /// This function deletes a slot by its ID and refreshes the slots list.
+  const deleteSlot = async (slotId) => {
+    try {
+      if (!window.confirm('Are you sure you want to delete this slot?')) return;
   
+      const res = await fetch(
+        `http://localhost:3001/grounds/${selectedGroundForSlots}/slots/${slotId}`,
+        { method: 'DELETE' }
+      );
+  
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete slot');
+      }
+  
+      fetchGroundSlots(selectedGroundForSlots); // Refresh slots
+      alert('Slot deleted successfully');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+  const deleteBooking = async (bookingId) => {
+    try {
+      if (!window.confirm('Are you sure you want to delete this booking?')) return;
+  
+      const res = await fetch(`http://localhost:3001/grounds/bookings/${bookingId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete booking');
+      }
+  
+      alert('Booking deleted successfully');
+      fetchBookings(selectedGroundForSlots); // Refresh after delete
+    } catch (err) {
+      alert(err.message);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="bg-white p-6 rounded-xl shadow-lg max-w-4xl mx-auto">
@@ -168,6 +245,12 @@ const GManagerDashboard = () => {
             View All Grounds
           </button>
           <button
+            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            onClick={() => setShowViewModal(true)}
+            >
+            View Bookings
+          </button>
+          <button
             className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
             onClick={() => setShowAddModal(true)}
           >
@@ -175,6 +258,69 @@ const GManagerDashboard = () => {
           </button>
         </div>
       </div>
+      
+{/* View Bookings Modal */}
+{showBookingsModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-4xl shadow-lg">
+      <h3 className="text-lg font-semibold mb-4">
+        Bookings for Ground {selectedGroundForBookings}
+      </h3>
+      
+      <div className="overflow-y-auto max-h-96">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slot Time</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {bookings.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No bookings found</td>
+              </tr>
+            ) : (
+              bookings.map((booking) => (
+                <tr key={booking.Booking_ID}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.Booking_ID}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {booking.StartTime}:00 - {booking.EndTime}:00
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.Roll_No}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(booking.B_Time).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <button
+                      onClick={() => deleteBooking(booking.Booking_ID)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-end mt-4">
+        <button
+          onClick={() => setShowBookingsModal(false)}
+          className="bg-gray-300 px-4 py-2 rounded"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Add Ground Modal */}
       {showAddModal && (
@@ -210,6 +356,9 @@ const GManagerDashboard = () => {
         </div>
       )}
 
+
+
+
       {/* View Grounds Modal */}
       {showViewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40">
@@ -238,6 +387,12 @@ const GManagerDashboard = () => {
                         }}
                       >
                         Update
+                      </button>
+                      <button
+                        className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                        onClick={() => fetchBookings(g.G_ID)}
+                      >
+                        Bookings
                       </button>
                       <button
                         className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600"
@@ -328,7 +483,19 @@ const GManagerDashboard = () => {
                     className="border p-2 rounded text-sm"
                   >
                     {slot.Day}: {slot.StartTime}:00-{slot.EndTime}:00
+
+                    <button
+                      onClick={() => deleteSlot(slot.SlotID)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete slot"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+
                   </div>
+                  
                 ))
               )}
             </div>
