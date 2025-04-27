@@ -43,8 +43,8 @@ const ManagerSignUp = () => {
       }));
       localStorage.setItem("access_token", data.token);
       
-      // Redirect to R_Manager dashboard
-      navigate("/rmanager/dashboard");
+      // Redirect to login page
+      navigate("login/manager");
   
     } catch (err) {
       setError("Network error - please try again later");

@@ -17,4 +17,14 @@ const authenticate = (req, res, next) => {
   }
 };
 
-module.exports = { authenticate };
+const authenticateManager = (requiredType) => {
+    return (req, res, next) => {
+      if (req.user?.role !== 'manager' || 
+          (requiredType && req.user?.managerType !== requiredType)) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      next();
+    };
+  };
+
+module.exports = { authenticate, authenticateManager };

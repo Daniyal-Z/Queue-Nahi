@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const ManagerLogin = () => {
-  const [rollNumber, setRollNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -10,46 +10,54 @@ const ManagerLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-
+  
     try {
       const response = await fetch("http://localhost:3001/managers/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ rollNumber, password }),
+        body: JSON.stringify({ 
+          email, 
+          password 
+        }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         setError(data.message || "Login failed");
-      } else {
-        // Save token/data if needed
-        localStorage.setItem("manager", JSON.stringify(data));
-        localStorage.setItem("type", data.type);
-
-        // Redirect based on type
-        if (data.type === "Restaurant") 
-        {
-          navigate("/rmanager/dashboard");
-        } 
-        else if (data.type === "Ground") 
-        {
-          navigate("/gmanager/dashboard");
-        } 
-        else if (data.type === "Photocopier") 
-        {
-          navigate("/pmanager/dashboard");
-        } 
-        else 
-        {
-          navigate("/rmanager/dashboard");
-        }
-        
+        return;
       }
+  
+      // Store manager data and token
+      localStorage.setItem("manager", JSON.stringify({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        type: data.type,
+        role: data.role
+      }));
+      localStorage.setItem("access_token", data.token);
+      
+      // Redirect based on manager type
+      switch(data.type) {
+        case 'Restaurant':
+          navigate("/rmanager/dashboard");
+          break;
+        case 'Ground':
+          navigate("/gmanager/dashboard");
+          break;
+        case 'Photocopier':
+          navigate("/pmanager/dashboard");
+          break;
+        default:
+          navigate("/rmanager/dashboard");
+      }
+  
     } catch (err) {
-      setError("Something went wrong");
+      setError("Network error - please try again later");
+      console.error("Login error:", err);
     }
   };
 
@@ -62,10 +70,10 @@ const ManagerLogin = () => {
         <h2 className="text-xl font-bold mb-4 text-center">Manager Login</h2>
 
         <input
-          type="text"
+          type="email"
           placeholder="Email"
-          value={rollNumber}
-          onChange={(e) => setRollNumber(e.target.value)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 mb-3 border rounded"
           required
         />

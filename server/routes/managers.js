@@ -17,25 +17,34 @@ router.get('/verify', authenticate, (req, res) => {
 
 // Manager Login
 router.post('/login', async (req, res) => {
-  const { rollNumber, password } = req.body;
+  const { email, password } = req.body;
 
   try {
     const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('Email', sql.VarChar, rollNumber)
-      .input('Password', sql.VarChar, password)
-      .execute('ManagerLogin');
+    
+    // 1. Get manager by email
+    const managerResult = await pool.request()
+      .input('Email', sql.VarChar, email)
+      .query(`
+        SELECT Mgr_ID, Name, Email, Password 
+        FROM Managers 
+        WHERE Email = @Email
+      `);
 
-    const manager = result.recordset[0];
-
+    const manager = managerResult.recordset[0];
+    
     if (!manager) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Now get their Type_Service
-    const typeResult = await pool
-      .request()
+    // 2. Verify password
+    const validPassword = await bcrypt.compare(password, manager.Password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // 3. Get manager type from Type_Service
+    const typeResult = await pool.request()
       .input('Mgr_ID', sql.Int, manager.Mgr_ID)
       .query(`
         SELECT ts.Type_Service
@@ -44,17 +53,39 @@ router.post('/login', async (req, res) => {
         WHERE ma.Mgr_ID = @Mgr_ID
       `);
 
-    const type = typeResult.recordset[0]?.Type_Service;
+    const managerType = typeResult.recordset[0]?.Type_Service;
+    if (!managerType) {
+      console.log({ message: 'No assigned service type' });
+    }
 
-    res.status(200).json({
+    // 4. Generate JWT token with role and type
+    const token = jwt.sign(
+      {
+        id: manager.Mgr_ID,
+        name: manager.Name,
+        email: manager.Email,
+        role: 'manager',
+        managerType // 'Restaurant', 'Ground', or 'Photocopier'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // 5. Return response
+    //const { Password, ...safeManagerData } = manager;
+    res.status(201).json({
       id: manager.Mgr_ID,
       name: manager.Name,
       email: manager.Email,
-      type: type
+      type: managerType,
+      role: 'manager',
+      token, // Send token to frontend
+      message: "Login successful"
     });
+
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

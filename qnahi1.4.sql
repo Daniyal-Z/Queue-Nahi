@@ -278,15 +278,9 @@ GO
 --    RETURN
 --  END
 
---  -- Insert new manager
---  INSERT INTO Managers (Email, Name, Password)
---  VALUES (@Email, @Name, @Password)
---END;
---GO
-
 ----Admin
 --INSERT INTO Admin (Email, Password) VALUES
---('admin@uni', 'pass');
+--('admin@uni', '$2b$10$fBQbI1xeZK4gDStgwGvRb.eoLsM19L0e9ZUhrUZRSYc6BaQkuCcZS');       --pass
 --GO
 
 ---- Default Photocopier
@@ -295,8 +289,8 @@ GO
 --GO
 
 --INSERT INTO Managers (Email, Name, Password) VALUES
---('ground@uni', 'Ali', 'groundM'),
---('photocopi@uni', 'Ahmed', 'photoM');
+--('ground@uni', 'Ali', '$2b$10$D/JYUvJaq.Tj.V0wVIZV5uM31Tqa49q6NWtcl4FSO5Kphl0IGQB5.'),     --groundM
+--('photocopi@uni', 'Ahmed', '$2b$10$ZLjpzddAII5.xpPi5HS2EeduKsG1y/RCT.hnhjnKmVZRObfebV8mG');               --photoM
 --GO
 
 --INSERT INTO Manager_Access (Mgr_ID, Type_Service_ID)
@@ -862,5 +856,8 @@ GO
 --GROUP BY p.Roll_No, pj.Print_Job_ID, p.Total_Amount, pt.Type_Name, pj.No_Pages;
 --GO
 
+--admin: '$2b$10$fBQbI1xeZK4gDStgwGvRb.eoLsM19L0e9ZUhrUZRSYc6BaQkuCcZS',
+--ground: '$2b$10$D/JYUvJaq.Tj.V0wVIZV5uM31Tqa49q6NWtcl4FSO5Kphl0IGQB5.',
+--photocopier: '$2b$10$ZLjpzddAII5.xpPi5HS2EeduKsG1y/RCT.hnhjnKmVZRObfebV8mG'
 
- 
+
