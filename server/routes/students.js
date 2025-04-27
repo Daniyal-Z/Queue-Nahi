@@ -19,32 +19,58 @@ router.get('/verify', authenticate, (req, res) => {
 
 // Student Login
 router.post('/login', async (req, res) => {
-  const { rollNumber, password } = req.body;
+  const { email, password } = req.body; // Note: rollNumber is actually email
 
   try {
     const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('Email', sql.VarChar, rollNumber)
-      .input('Password', sql.VarChar, password)
-      .execute('StudentLogin');
+    
+    // 1. Directly query student by email
+    const result = await pool.request()
+      .input('Email', sql.VarChar, email)
+      .query(`
+        SELECT Roll_No, Name, Email, Password 
+        FROM Students 
+        WHERE Email = @Email AND Active = 1
+      `);
 
     const student = result.recordset[0];
     
     if (!student) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    res.status(200).json({
+    // 2. Verify password with bcrypt
+    const validPassword = await bcrypt.compare(password, student.Password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // 3. Generate JWT token
+    const token = jwt.sign(
+      {
+        id: student.Roll_No,
+        name: student.Name,
+        email: student.Email,
+        role: 'student'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // 4. Return sanitized user data + token
+    //const { Password, ...userData } = student;
+    res.status(201).json({
       id: student.Roll_No,
       name: student.Name,
-      email: student.Email
+      email: student.Email,
+      token, 
+      message: "Login successful"
     });
-    
+
 
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

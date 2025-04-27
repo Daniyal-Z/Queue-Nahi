@@ -56,7 +56,7 @@ const StudentDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem("student");
     localStorage.removeItem("access_token");
-    navigate("/student/login", { replace: true });
+    navigate("/login/student", { replace: true });
   };
 
   if (loading) {
