@@ -36,16 +36,16 @@ const GroundModal = ({ onClose, studentRollNo }) => {
       
       const res = await fetch(url);
       
-      // Check if response is OK (status 200-299)
+      
       if (!res.ok) {
-        // Try to parse error message from response
+       
         const errorText = await res.text();
         try {
-          // If it's JSON, parse it
+          
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.message || errorData.error || `Error ${res.status}`);
         } catch {
-          // If not JSON, use the raw text
+          
           throw new Error(errorText || `Error ${res.status}`);
         }
       }

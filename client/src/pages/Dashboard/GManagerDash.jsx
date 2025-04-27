@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const GManagerDashboard = () => {
   //booking component
@@ -18,7 +19,7 @@ const GManagerDashboard = () => {
   const [groundSlots, setGroundSlots] = useState([]);
   const [selectedGroundForSlots, setSelectedGroundForSlots] = useState(null);
   const [newSlot, setNewSlot] = useState({
-    Day: "Mon",
+    Day: new Date(), 
     StartTime: 9,
     EndTime: 10
   });
@@ -134,6 +135,16 @@ const GManagerDashboard = () => {
         throw new Error(errorData.error || 'Failed to delete booking');
       }
       
+      // Also update the slot status back to Available
+      const booking = bookings.find(b => b.Booking_ID === bookingId);
+      if (booking) {
+        await fetch(`http://localhost:3001/slots/${booking.SlotID}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'Available' })
+        });
+      }
+      
       // Refresh the bookings list
       fetchBookings(selectedGroundForBookings);
       alert('Booking deleted successfully');
@@ -163,24 +174,46 @@ const GManagerDashboard = () => {
 
   const handleAddSlot = async () => {
     try {
+      // Validate time inputs
+      if (newSlot.StartTime >= newSlot.EndTime) {
+        setError("End time must be after start time");
+        return;
+      }
+  
+      // Format the date to YYYY-MM-DD
+      const formattedDate = new Date(newSlot.Day).toISOString().split('T')[0];
+  
+      console.log("Sending slot data:", {
+        date: formattedDate,
+        startTime: newSlot.StartTime,
+        endTime: newSlot.EndTime
+      });
+  
       const response = await fetch(
         `http://localhost:3001/grounds/${selectedGroundForSlots}/slots`, 
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newSlot)
+          body: JSON.stringify({
+            date: formattedDate,
+            startTime: parseInt(newSlot.StartTime),
+            endTime: parseInt(newSlot.EndTime)
+          })
         }
       );
   
+      const responseData = await response.json();
+      console.log("Backend response:", responseData);
+  
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to add slot");
+        throw new Error(responseData.message || "Failed to add slot");
       }
   
-      const data = await response.json();
       fetchGroundSlots(selectedGroundForSlots);
-      setNewSlot({ Day: "Mon", StartTime: 9, EndTime: 10 });
+      setNewSlot({ Day: new Date(), StartTime: 9, EndTime: 10 });
+      setError("");
     } catch (err) {
+      console.error("Slot creation error:", err);
       setError(err.message);
     }
   };
@@ -268,11 +301,13 @@ const GManagerDashboard = () => {
       </h3>
       
       <div className="overflow-y-auto max-h-96">
+        {/* Replace the existing table with this new one */}
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slot Time</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slot Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -281,7 +316,7 @@ const GManagerDashboard = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {bookings.length === 0 ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No bookings found</td>
+                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">No bookings found</td>
               </tr>
             ) : (
               bookings.map((booking) => (
@@ -290,13 +325,20 @@ const GManagerDashboard = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {booking.StartTime}:00 - {booking.EndTime}:00
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      booking.Slot_Status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {booking.Slot_Status}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.Roll_No}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(booking.B_Time).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <button
-                      onClick={() => deleteBooking(booking.Booking_ID)}
+                      onClick={() => handleDeleteBooking(booking.Booking_ID)}
                       className="text-red-600 hover:text-red-900"
                     >
                       Delete
@@ -466,7 +508,8 @@ const GManagerDashboard = () => {
       )}
 
       {/* Manage Slots Modal */}
-      {showSlotsModal && (
+        {/* Manage Slots Modal */}
+        {showSlotsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-lg">
             <h3 className="text-lg font-semibold mb-4">
@@ -482,8 +525,7 @@ const GManagerDashboard = () => {
                     key={slot.SlotID}
                     className="border p-2 rounded text-sm"
                   >
-                    {slot.Day}: {slot.StartTime}:00-{slot.EndTime}:00
-
+                    {new Date(slot.Day).toLocaleDateString()}: {slot.StartTime}:00-{slot.EndTime}:00
                     <button
                       onClick={() => deleteSlot(slot.SlotID)}
                       className="text-red-500 hover:text-red-700"
@@ -493,9 +535,7 @@ const GManagerDashboard = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
-
                   </div>
-                  
                 ))
               )}
             </div>
@@ -503,15 +543,13 @@ const GManagerDashboard = () => {
             <div className="space-y-2 border-t pt-4">
               <h4 className="font-medium">Add New Slot</h4>
               <div className="grid grid-cols-3 gap-2">
-                <select
-                  value={newSlot.Day}
-                  onChange={(e) => setNewSlot({...newSlot, Day: e.target.value})}
-                  className="border p-2 rounded"
-                >
-                  {["Mon","Tue","Wed","Thu","Fri","Sat"].map((day) => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
+                <DatePicker
+                  selected={newSlot.Day}
+                  onChange={(date) => setNewSlot({...newSlot, Day: date})}
+                  className="border p-2 rounded w-full"
+                  dateFormat="yyyy-MM-dd"
+                  minDate={new Date()}
+                />
                 <input
                   type="number"
                   value={newSlot.StartTime}

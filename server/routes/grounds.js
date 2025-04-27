@@ -2,7 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
 
-  
+// Get all bookings
+router.get('/bookings/all', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .query('SELECT * FROM Booking ORDER BY B_Time DESC');
+    res.json(result.recordset);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 // Get all grounds
 router.get('/', async (req, res) => {
   try {
@@ -116,6 +126,22 @@ router.patch('/:id/status', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+router.patch('/slots/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('status', sql.VarChar, status)
+      .query('UPDATE Slots SET Status = @status WHERE SlotID = @id');
+
+    res.json({ message: 'Slot status updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // Delete ground
 router.delete('/:id', async (req, res) => {
@@ -157,56 +183,74 @@ router.delete('/:id', async (req, res) => {
 
 
 
-// Get bookings for a ground
+// Get bookings for a specific ground
 router.get('/:gid/bookings', async (req, res) => {
   try {
     const { gid } = req.params;
+    
+    // Validate ground ID is a number
+    if (isNaN(gid)) {
+      return res.status(400).json({ error: 'Invalid ground ID' });
+    }
+
     const pool = await poolPromise;
     const result = await pool.request()
-    .input('groundId', sql.Int, gid)
-    .query(`SELECT B.Booking_ID,B.Roll_No,G.Ground_Type, S.Day, S.StartTime, S.EndTime, S.Status AS Slot_Status, G.G_Status AS Ground_Status, B.B_Time
-    FROM 
-    Booking B
-    INNER JOIN 
-    Slots S ON B.SlotID = S.SlotID
-    INNER JOIN 
-        Grounds G ON S.G_ID = G.G_ID;
+      .input('groundId', sql.Int, gid)
+      .query(`
+        SELECT 
+          B.Booking_ID,
+          B.Roll_No,
+          G.Ground_Type, 
+          S.Day, 
+          S.StartTime, 
+          S.EndTime, 
+          S.Status AS Slot_Status, 
+          G.G_Status AS Ground_Status, 
+          B.B_Time
+        FROM Booking B
+        INNER JOIN Slots S ON B.SlotID = S.SlotID
+        INNER JOIN Grounds G ON S.G_ID = G.G_ID
+        WHERE G.G_ID = @groundId
+        ORDER BY B.B_Time DESC
       `);
-  return res.status(200).json(result.recordset);
+
+    return res.status(200).json(result.recordset);
 
   } catch (error) {
     console.error('Error fetching bookings:', error);
-    return res.status(500).json({ error: 'Failed to fetch bookings' });
+    return res.status(500).json({ 
+      error: 'Failed to fetch bookings',
+      details: error.message 
+    });
   }
 });
 // Get available slots for a ground
 router.get('/:id/slots', async (req, res) => {
   try {
     const { id } = req.params;
+    const { date } = req.query; // Optional date filter
+    
     const pool = await poolPromise;
+    let query = 'SELECT * FROM Slots WHERE G_ID = @gid AND Status = \'Available\'';
+    
+    // If date parameter is provided, filter by date
+    if (date) {
+      query += ' AND CONVERT(DATE, Day) = CONVERT(DATE, @date)';
+    }
 
-    const slotsResult = await pool.request()
-      .input('gid', sql.Int, id)
-      .query('SELECT * FROM Slots WHERE G_ID = @gid');
+    const request = pool.request()
+      .input('gid', sql.Int, id);
+    
+    if (date) {
+      request.input('date', sql.Date, date);
+    }
 
-    const bookedResult = await pool.request()
-      .input('gid', sql.Int, id)
-      .query(`
-        SELECT SlotID FROM Booking 
-        WHERE G_ID = @gid AND B_Time >= CAST(GETDATE() AS DATE)
-      `);
-
-    const bookedSlots = bookedResult.recordset.map(b => b.SlotID);
-    const availableSlots = slotsResult.recordset.filter(slot => 
-      !bookedSlots.includes(slot.SlotID)
-    );
-
-    res.json(availableSlots);
+    const slotsResult = await request.query(query);
+    res.json(slotsResult.recordset);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
-
 //delete slot from grounds (ground manager)
 // This route deletes a slot from the database. It first checks if there are any bookings associated with the slot.
 router.delete('/:gid/slots/:slotId', async (req, res) => {
@@ -276,67 +320,67 @@ router.delete('/bookings/:bookingId', async (req, res) => {
 });
 // Add new slot
 router.post('/:id/slots', async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { Day, StartTime, EndTime } = req.body;
-      
-      // Validate inputs
-      if (!Day || !StartTime || !EndTime) {
-        return res.status(400).json({ message: 'Missing required fields' });
-      }
-      
-      if (StartTime >= EndTime) {
-        return res.status(400).json({ message: 'End time must be after start time' });
-      }
-  
-      const pool = await poolPromise;
-      const result = await pool.request()
-        .input('Day', sql.VarChar, Day)
-        .input('StartTime', sql.Int, StartTime)
-        .input('EndTime', sql.Int, EndTime)
-        .input('G_ID', sql.Int, id)
-        .query(`
-          INSERT INTO Slots (Day, StartTime, EndTime, G_ID, Status)
-          VALUES (@Day, @StartTime, @EndTime, @G_ID, 'Available')
-          SELECT SCOPE_IDENTITY() AS SlotID
-        `);
-      
-      res.status(201).json({ 
-        message: 'Slot added successfully',
-        slotId: result.recordset[0].SlotID
-      });
-    } catch (error) {
-      console.error('Error adding slot:', error);
-      res.status(500).json({ 
-        message: 'Failed to add slot',
-        error: error.message 
-      });
+  try {
+    const { id } = req.params;
+    const { date, startTime, endTime } = req.body; // Note: camelCase vs PascalCase
+
+    // Better validation
+    if (!date) return res.status(400).json({ message: 'Date is required' });
+    if (!startTime) return res.status(400).json({ message: 'Start time is required' });
+    if (!endTime) return res.status(400).json({ message: 'End time is required' });
+
+    // Additional validation
+    if (startTime >= endTime) {
+      return res.status(400).json({ message: 'End time must be after start time' });
     }
-  });
+
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('Date', sql.Date, date)
+      .input('StartTime', sql.Int, startTime)
+      .input('EndTime', sql.Int, endTime)
+      .input('G_ID', sql.Int, id)
+      .query(`
+        INSERT INTO Slots (Day, StartTime, EndTime, G_ID, Status)
+        VALUES (@Date, @StartTime, @EndTime, @G_ID, 'Available')
+        SELECT SCOPE_IDENTITY() AS SlotID
+      `);
+    
+    res.status(201).json({ 
+      message: 'Slot added successfully',
+      slotId: result.recordset[0].SlotID
+    });
+  } catch (error) {
+    console.error('Error adding slot:', error);
+    res.status(500).json({ 
+      message: 'Failed to add slot',
+      error: error.message 
+    });
+  }
+});
 // Book a ground
 router.post('/book', async (req, res) => {
   const transaction = new sql.Transaction(await poolPromise);
   
   try {
-    //const { id } = req.params;
     const { roll_no, slot_id, date, g_id } = req.body;
     
     await transaction.begin();
     const request = new sql.Request(transaction);
 
-    // 1. Check ground availability
-    const groundResult = await request
-      .input('g_id_param', sql.Int, g_id)
-      .query('SELECT G_Status FROM Grounds WHERE G_ID = @g_id_param');
+    // 1. Check slot availability
+    const slotResult = await request
+      .input('slot_id_param', sql.Int, slot_id)  // Changed parameter name
+      .query('SELECT Status FROM Slots WHERE SlotID = @slot_id_param');  // Updated reference
     
-    if (groundResult.recordset.length === 0) {
+    if (slotResult.recordset.length === 0) {
       await transaction.rollback();
-      return res.status(404).json({ message: 'Ground not found' });
+      return res.status(404).json({ message: 'Slot not found' });
     }
     
-    if (groundResult.recordset[0].G_Status !== 'Available') {
+    if (slotResult.recordset[0].Status !== 'Available') {
       await transaction.rollback();
-      return res.status(400).json({ message: 'Ground not available' });
+      return res.status(400).json({ message: 'Slot not available' });
     }
 
     // 2. Create booking
@@ -344,17 +388,17 @@ router.post('/book', async (req, res) => {
       .input('roll_no', sql.Int, roll_no)
       .input('g_id', sql.Int, g_id)
       .input('b_time', sql.DateTime, new Date(date))
-      .input('slot_id', sql.Int, slot_id)
+      .input('slot_id_booking', sql.Int, slot_id)  // Changed parameter name
       .query(`
         INSERT INTO Booking (Roll_No, G_ID, B_Time, SlotID)
-        VALUES (@roll_no, @g_id, @b_time, @slot_id)
+        VALUES (@roll_no, @g_id, @b_time, @slot_id_booking)
       `);
 
-    // 3. Update ground status
+    // 3. Update slot status
     await request
-      .input('g_id_update', sql.Int, g_id)
+      .input('slot_id_update', sql.Int, slot_id)  // Changed parameter name
       .input('status', sql.VarChar, 'Booked')
-      .query('UPDATE Grounds SET G_Status = @status WHERE G_ID = @g_id_update');
+      .query('UPDATE Slots SET Status = @status WHERE SlotID = @slot_id_update');
 
     await transaction.commit();
     res.status(201).json({ message: 'Ground booked successfully' });
@@ -363,5 +407,4 @@ router.post('/book', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
 module.exports = router;
