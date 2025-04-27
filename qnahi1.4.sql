@@ -27,7 +27,7 @@ GO
 --    Roll_No INT,
 --    G_ID INT NOT NULL,
 --    B_Time DATETIME NOT NULL,
---    Slot VARCHAR(20) NOT NULL
+--    Slot INT NOT NULL
 --);
 
 ---- 4. Restaurants table
@@ -861,6 +861,10 @@ GO
 --WHERE pay.Status = 'Paid'  -- Filter for paid orders
 --GROUP BY p.Roll_No, pj.Print_Job_ID, p.Total_Amount, pt.Type_Name, pj.No_Pages;
 --GO
+
+
+
+
 
 
  

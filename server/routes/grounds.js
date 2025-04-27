@@ -212,20 +212,20 @@ router.post('/:id/slots', async (req, res) => {
     }
   });
 // Book a ground
-router.post('/:id/book', async (req, res) => {
+router.post('/book', async (req, res) => {
   const transaction = new sql.Transaction(await poolPromise);
   
   try {
-    const { id } = req.params;
-    const { roll_no, slot_id, date } = req.body;
+    //const { id } = req.params;
+    const { roll_no, slot_id, date, g_id } = req.body;
     
     await transaction.begin();
     const request = new sql.Request(transaction);
 
     // 1. Check ground availability
     const groundResult = await request
-      .input('id', sql.Int, id)
-      .query('SELECT G_Status FROM Grounds WHERE G_ID = @id');
+      .input('g_id_param', sql.Int, g_id)
+      .query('SELECT G_Status FROM Grounds WHERE G_ID = @g_id_param');
     
     if (groundResult.recordset.length === 0) {
       await transaction.rollback();
@@ -240,7 +240,7 @@ router.post('/:id/book', async (req, res) => {
     // 2. Create booking
     await request
       .input('roll_no', sql.Int, roll_no)
-      .input('g_id', sql.Int, id)
+      .input('g_id', sql.Int, g_id)
       .input('b_time', sql.DateTime, new Date(date))
       .input('slot_id', sql.Int, slot_id)
       .query(`
@@ -250,32 +250,9 @@ router.post('/:id/book', async (req, res) => {
 
     // 3. Update ground status
     await request
-      .input('id', sql.Int, id)
+      .input('g_id_update', sql.Int, g_id)
       .input('status', sql.VarChar, 'Booked')
-      .query('UPDATE Grounds SET G_Status = @status WHERE G_ID = @id');
-
-    // 4. Create payment record
-    const typeServiceResult = await request
-      .input('TypeService', sql.VarChar, 'Ground')
-      .query(`
-        SELECT Type_Service_ID FROM Type_Service 
-        WHERE Type_Service = @TypeService
-      `);
-    
-    const bookingIdResult = await request.query('SELECT IDENT_CURRENT("Booking") as Booking_ID');
-    
-    await request
-      .input('TypeServiceID', sql.Int, typeServiceResult.recordset[0].Type_Service_ID)
-      .input('OrderID', sql.Int, bookingIdResult.recordset[0].Booking_ID)
-      .input('RollNo', sql.Int, roll_no)
-      .input('Amount', sql.Decimal(10,2), 0)
-      .input('PaymentType', sql.VarChar, 'Cash')
-      .input('Status', sql.VarChar, 'Paid')
-      .query(`
-        INSERT INTO Payments 
-        (Type_Service_ID, Order_ID, Roll_No, Amount_Total, Payment_Type, Status)
-        VALUES (@TypeServiceID, @OrderID, @RollNo, @Amount, @PaymentType, @Status)
-      `);
+      .query('UPDATE Grounds SET G_Status = @status WHERE G_ID = @g_id_update');
 
     await transaction.commit();
     res.status(201).json({ message: 'Ground booked successfully' });
