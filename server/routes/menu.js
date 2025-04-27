@@ -31,29 +31,6 @@ router.get('/menu/:id', async (req, res) => {
     }
 });
 
-// Get Menu Items by Restaurant 
-router.get("/menu/items", async (req, res) => { 
-    try { 
-      const { restaurantId } = req.query;  
-      const pool = await poolPromise;
-  
-      let query = "SELECT * FROM Menu";
-      if (restaurantId) {    // if rest id is entered otherwise entire menu
-        query += " WHERE Restaurant_ID = @RestaurantId";
-      }
-  
-      const result = await pool.request()
-        .input("RestaurantId", sql.Int, restaurantId)
-        .query(query);
-  
-      res.status(200).json(result.recordset);
-  
-  
-  } catch (error) 
-  { console.error("Error fetching menu items:", error); 
-    res.status(500).json({ message: "Server error" }); 
-  } 
-  });
 
 // Add a new menu item
 router.post('/menu', async (req, res) => {

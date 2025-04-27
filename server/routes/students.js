@@ -25,7 +25,7 @@ router.get('/verify', authenticate, (req, res) => {
 
 // Student Login
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body; // Note: rollNumber is actually email
+  const { email, password } = req.body; 
 
   try {
     const pool = await poolPromise;
@@ -86,24 +86,6 @@ router.get('/', async (req, res) => {
     const pool = await poolPromise;
     const result = await pool.request().query('SELECT * FROM Students');
     res.status(200).json(result.recordset);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// Get student by ID
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM Students WHERE ID = @id');
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.status(200).json(result.recordset[0]);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -351,49 +333,5 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
-
-router.get("/studentBookings", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Bookings");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student bookings:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-  
-router.get("/studentFoodOrders", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Food_Orders");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student food orders:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-  
-router.get("/studentPrintJobs", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Print_Jobs");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student print jobs:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-  
-router.get("/studentBookOrders", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Book_Orders");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student book orders:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
 
 module.exports = router;

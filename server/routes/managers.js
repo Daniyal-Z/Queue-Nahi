@@ -143,25 +143,6 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// Add a new manager
-// router.post('/', async (req, res) => {
-//     try {
-//         const { email, name, pass } = req.body;
-//         const pool = await poolPromise;
-
-//         await pool.request()
-//             .input('email', sql.VarChar, email)
-//             .input('name', sql.VarChar, name)
-//             .input('pass', sql.VarChar, pass)
-//             .query('INSERT INTO Managers (Email, Name, Password) VALUES (@email, @name, @pass)');
-
-//         res.status(201).json({ message: 'Manager added successfully' });
-//     } catch (error) {
-//         console.error('Error inserting Manager:', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// });
-
 // Get all managers
 router.get('/', async (req, res) => {
     try {
@@ -174,27 +155,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get manager by ID
-router.get('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT * FROM Managers WHERE Manager_ID = @id');
-
-        if (result.recordset.length === 0) {
-            return res.status(404).json({ message: 'Manager not found' });
-        }
-        res.status(200).json(result.recordset[0]);
-    } catch (error) {
-        console.error('Error fetching manager:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
 // Update manager info
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {       // so here when changing the password you would also need to hash it
     try {
         const { id } = req.params;
         const { email, name, pass } = req.body;

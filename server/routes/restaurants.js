@@ -66,17 +66,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.get("/restaurants/status", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Restaurant_Status");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching restaurant status:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
 // Get a specific restaurant by ID
 router.get('/:id', async (req, res) => {
     //console.log('Received request for restaurant with ID:', req.params.id); // Add this log
@@ -239,7 +228,6 @@ router.put('/:rid/orders/:id', async (req, res) => {
 });
 
 
-
 // Get food orders for a restaurant
 router.get('/:rid/orders', async (req, res) => {
     const { rid } = req.params;
@@ -304,16 +292,5 @@ router.delete('/restaurants/:id', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-router.get("/activeFoodOrders", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Active_Food_Orders");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching active food orders:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
 
 module.exports = router;

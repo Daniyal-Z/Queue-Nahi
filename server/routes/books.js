@@ -2,17 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
 
-// Get all books
-router.get('/books', async (req, res) => {
-    try {
-        const pool = await poolPromise;
-        const result = await pool.request().query('SELECT * FROM Books');
-        res.json(result.recordset);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Get a specific book by ID
 router.get('/books/:id', async (req, res) => {
     try {
@@ -30,23 +19,6 @@ router.get('/books/:id', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-// // Add a new book
-// router.post('/books', async (req, res) => {
-//     try {
-//         const { Book_Name, Book_Amount, Stock } = req.body;
-        
-//         const pool = await poolPromise;
-//         await pool.request()
-//             .input('Book_Name', sql.VarChar, Book_Name)
-//             .input('Book_Amount', sql.Decimal, Book_Amount)
-//             .query('INSERT INTO Books (Book_Name, Book_Amount) VALUES (@Book_Name, @Book_Amount)');
-        
-//         res.status(201).json({ message: 'Book added successfully' });
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-//     }
-// });
 
 // Add a new book
 router.post('/catalogue', async (req, res) => {
@@ -152,7 +124,6 @@ router.get('/orders', async (req, res) => {
 });
 
 
-
 // Get books
 router.get('/catalogue', async (req, res) => {
     try {
@@ -228,18 +199,6 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-router.get("/bookOrderStatus", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Book_Order_Status");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching book order status:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
 
 
 module.exports = router;
