@@ -27,7 +27,17 @@ GO
 --    Roll_No INT,
 --    G_ID INT NOT NULL,
 --    B_Time DATETIME NOT NULL,
---    Slot INT NOT NULL
+--    SlotID INT NOT NULL
+--);
+
+---- Slots table    -- Remove G_ID and Day
+--CREATE TABLE Slots (
+--    SlotID INT IDENTITY(1,1) PRIMARY KEY,
+--    Day DATE,
+--    StartTime INT NOT NULL,
+--    EndTime INT NOT NULL,
+--	  Status VARCHAR(20) CHECK (Status IN ('Available', 'Booked')),
+--	  G_ID INT,
 --);
 
 ---- 4. Restaurants table
