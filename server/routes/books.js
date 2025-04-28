@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 // Get a specific book by ID
-router.get('/books/:id', async (req, res) => {
+router.get('/books/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -21,7 +23,7 @@ router.get('/books/:id', async (req, res) => {
 });
 
 // Add a new book
-router.post('/catalogue', async (req, res) => {
+router.post('/catalogue', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     const { Book_Name, Book_Amount, Stock } = req.body; // Get product data from the request body
 
     try {
@@ -40,7 +42,7 @@ router.post('/catalogue', async (req, res) => {
 });
 
 // new book order
-router.post('/catalogue/order', async (req, res) => {
+router.post('/catalogue/order', authenticate, authorize(['student']), async (req, res) => {
     const { roll_no, order_time, total_amount, books } = req.body;
 
     // Prepare books for table-valued parameter (TVP)
@@ -72,7 +74,7 @@ router.post('/catalogue/order', async (req, res) => {
 });
 
 // Get all book orders (with roll number and book details)
-router.get('/orders', async (req, res) => {
+router.get('/orders', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -125,7 +127,7 @@ router.get('/orders', async (req, res) => {
 
 
 // Get books
-router.get('/catalogue', async (req, res) => {
+router.get('/catalogue', authenticate, authorize(['manager', 'student']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -140,7 +142,7 @@ router.get('/catalogue', async (req, res) => {
 
 
 // Update an existing book
-router.put('/catalogue/:id', async (req, res) => {
+router.put('/catalogue/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Book_Name, Book_Amount, Stock } = req.body;
@@ -161,7 +163,7 @@ router.put('/catalogue/:id', async (req, res) => {
 });
 
 //update order status
-router.put('/orders/:id', async (req, res) => {
+router.put('/orders/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     const { id } = req.params;
     const { Payment_Status } = req.body;
 
@@ -186,7 +188,7 @@ router.put('/orders/:id', async (req, res) => {
 });
 
 // Delete a book
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;

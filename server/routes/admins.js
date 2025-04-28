@@ -3,7 +3,8 @@ const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { authenticate } = require('../middleware/auth'); 
+const { authenticate } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 router.get('/verify', authenticate, (req, res) => {
   if (req.user.role !== 'admin') {

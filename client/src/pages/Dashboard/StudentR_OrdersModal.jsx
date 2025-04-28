@@ -6,31 +6,79 @@ const StudentOrdersModal = ({ onClose }) => {
   const [student, setStudent] = useState(null);
   const [showOldOrders, setShowOldOrders] = useState(false); 
 
-  useEffect(() => {
-    const stored = localStorage.getItem("student");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      setStudent(parsed);
-    } else {
-      console.error("Student not found in localStorage.");
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('No authentication token found. Redirecting to login.');
     }
-  }, []);
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchStudentAndOrders = async () => {
       try {
-        const response = await fetch(`http://localhost:3001/students/${student.id}/active-orders`);
-        const data = await response.json();
-        setOrders(data);
+        // 1. Load student
+        const storedStudent = localStorage.getItem('student');
+        if (!storedStudent) {
+          throw new Error('Student not found in localStorage.');
+        }
+        const studentData = JSON.parse(storedStudent);
+        setStudent(studentData);
+  
+        // 2. Load token
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          throw new Error('Missing authentication token');
+        }
+  
+        // 3. Fetch orders
+        const response = await authorizedFetch(`http://localhost:3001/students/${studentData.id}/active-orders`);
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch orders');
+        }
+  
+        const ordersData = await response.json();
+        setOrders(ordersData);
+  
       } catch (err) {
-        console.error("Failed to fetch orders:", err);
+        console.error('Fetch error:', err);
+  
+        // 4. Handle unauthorized (401/403)
+        if (err.message.includes('401') || err.message.includes('403')) {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('student');
+          window.location.href = '/login/student';
+        }
       }
     };
-
-    if (student?.id) {
-      fetchOrders();
-    }
-  }, [student]);
+  
+    fetchStudentAndOrders();
+  }, []);
+  
 
   return (
     <>

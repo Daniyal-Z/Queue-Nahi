@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager  } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
-router.post('/add-restaurant', async (req, res) => {
+router.post('/add-restaurant', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { name, email, phone, location, mgrId } = req.body;
   
     if (!name || !email || !phone || !location || !mgrId) {

@@ -3,7 +3,8 @@ const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { authenticate } = require('../middleware/auth'); 
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 router.get('/verify', authenticate, (req, res) => {
   if (req.user.role !== 'manager') {
@@ -144,7 +145,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // Get all managers
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query('SELECT * FROM Managers');
@@ -156,7 +157,7 @@ router.get('/', async (req, res) => {
 });
 
 // Update manager info
-router.put('/:id', async (req, res) => {       // so here when changing the password you would also need to hash it
+router.put('/:id', authenticate, authorize(['manager']), async (req, res) => {       // so here when changing the password you would also need to hash it
     try {
         const { id } = req.params;
         const { email, name, pass } = req.body;
@@ -177,7 +178,7 @@ router.put('/:id', async (req, res) => {       // so here when changing the pass
 });
 
 // Delete a manager
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;

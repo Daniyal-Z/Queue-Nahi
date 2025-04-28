@@ -4,6 +4,7 @@ import { useAuthVerify } from '../../hooks';
 
 const ManagerDashboard = () => {
   const [manager, setManager] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [cafesModal, setCafesModal] = useState(false);
   const [restaurants, setRestaurants] = useState([]);
@@ -19,22 +20,50 @@ const ManagerDashboard = () => {
 
   useAuthVerify('manager');
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('manager');
+      //window.location.href = '/login/manager';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('manager');
+      //window.location.href = '/login/manager';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };
+  
+
   // In ManagerDashboard.js
   useEffect(() => {
-        const managerData = localStorage.getItem('manager');
-        
-        if (managerData)
-        {
-          try {
-            setManager(JSON.parse(managerData));
-          }
-          catch (err) {
-            console.error("Failed to parse manager data:", err);
-            handleLogout();
-          }  
-        }
-    }
-  );
+      const managerData = localStorage.getItem('manager');   
+      if (managerData) {
+        try{
+          setManager(JSON.parse(managerData));
+          //console.log(manager.name);
+        } catch (err) {
+          console.error("Failed to parse manager data:", err);
+          handleLogout();
+        }}
+      setLoading(false);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("manager");
@@ -45,13 +74,10 @@ const ManagerDashboard = () => {
   const handleAddRestaurant = async (e) => {
     e.preventDefault();
     setMessage("");
-
+  
     try {
-      const response = await fetch("http://localhost:3001/restaurantMgr/add-restaurant", {
+      const response = await authorizedFetch("http://localhost:3001/restaurantMgr/add-restaurant", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           name,
           email,
@@ -60,9 +86,9 @@ const ManagerDashboard = () => {
           mgrId: manager.id,
         }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         setMessage(data.message || "Failed to add restaurant");
       } else {
@@ -77,20 +103,26 @@ const ManagerDashboard = () => {
       setMessage("Something went wrong");
     }
   };
-
+  
   const fetchRestaurants = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/restaurants/by-manager/${manager.id}`);
+      const res = await authorizedFetch(`http://localhost:3001/restaurants/by-manager/${manager.id}`);
       const data = await res.json();
       setRestaurants(data);
       setCafesModal(true);
     } catch (err) {
       console.error("Failed to fetch restaurants:", err);
     }
-  };
-  
+  };  
 
-  if (!manager) return null;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">

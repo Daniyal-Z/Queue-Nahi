@@ -4,26 +4,24 @@ import { useAuthVerify } from '../../hooks';
 
 const PManagerDashboard = () => {
   const [manager, setManager] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useAuthVerify('manager');
     
   // In ManagerDashboard.js
   useEffect(() => {
-        const managerData = localStorage.getItem('manager');
-        
-        if (managerData)
-        {
-          try {
-            setManager(JSON.parse(managerData));
-          }
-          catch (err) {
-            console.error("Failed to parse manager data:", err);
-            handleLogout();
-          }  
-        }
-    }
-  );
+    const managerData = localStorage.getItem('manager');   
+    if (managerData) {
+      try{
+        setManager(JSON.parse(managerData));
+        //console.log(manager.name);
+      } catch (err) {
+        console.error("Failed to parse manager data:", err);
+        handleLogout();
+      }}
+    setLoading(false);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("manager");
@@ -38,6 +36,14 @@ const PManagerDashboard = () => {
   const handleViewBookOrders = () => {
     window.location.href = `/pmanager/bookshop`; // create this route
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">

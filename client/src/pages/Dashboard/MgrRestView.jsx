@@ -16,6 +16,35 @@ const MgrRestView = () => {
   const [oldOrdersModalOpen, setOldOrdersModalOpen] = useState(false);
   const [oldOrders, setOldOrders] = useState([]);
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -27,7 +56,7 @@ const MgrRestView = () => {
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/restaurants/${id}`);
+        const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}`);
         const data = await res.json();
         setRestaurant(data);
       } catch (err) {
@@ -37,7 +66,7 @@ const MgrRestView = () => {
 
     const fetchMenu = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/restaurants/${id}/menu`);
+        const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}/menu`);
         const data = await res.json();
         setMenuItems(data);
       } catch (err) {
@@ -76,7 +105,7 @@ const MgrRestView = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`http://localhost:3001/restaurants/${id}/menu`, {
+      const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}/menu`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -108,7 +137,7 @@ const MgrRestView = () => {
 
   const handleOpenOrdersModal = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/restaurants/${id}/orders`);
+      const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}/orders`);
       const data = await res.json();
       const unpaidOrders = data.filter(order => order.Payment_Status !== "Paid");
       setOrders(unpaidOrders);
@@ -124,7 +153,7 @@ const MgrRestView = () => {
 
   const handleOpenOldOrdersModal = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/restaurants/${id}/orders`);
+      const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}/orders`);
       const data = await res.json();
       const paidOrders = data.filter(order => order.Payment_Status !== "Unpaid");
       setOldOrders(paidOrders);
@@ -236,7 +265,7 @@ const MgrRestView = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const res = await fetch(`http://localhost:3001/restaurants/${id}/menu/${currentProduct.Item_ID}`, {
+                  const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}/menu/${currentProduct.Item_ID}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(currentProduct),
@@ -335,7 +364,7 @@ const MgrRestView = () => {
                         const newP_Status = prompt("Enter new Status (Paid/Unpaid): ", order.Payment_Status);
                         if (newStatus) {
                           try {
-                            const res = await fetch(`http://localhost:3001/restaurants/${id}/orders/${order.FOrder_ID}`, {
+                            const res = await authorizedFetch(`http://localhost:3001/restaurants/${id}/orders/${order.FOrder_ID}`, {
                               method: "PUT",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ Food_Status: newStatus, Pickup_Time: newPickup, Payment_Status: newP_Status}),

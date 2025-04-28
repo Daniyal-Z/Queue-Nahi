@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 // routes/restaurant.js
-router.get('/by-manager/:mgrId', async (req, res) => {
+router.get('/by-manager/:mgrId', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { mgrId } = req.params;
   
     try {
@@ -22,7 +24,7 @@ router.get('/by-manager/:mgrId', async (req, res) => {
 
 // Function to place the order
 // routes/food-orders.js
-router.post('/food-orders', async (req, res) => {
+router.post('/food-orders', authenticate, authorize(['student']), async (req, res) => {
     const { roll_no, restaurant_id, order_time, total_amount, items } = req.body;
 
     // Prepare items for table-valued parameter
@@ -56,7 +58,7 @@ router.post('/food-orders', async (req, res) => {
 
 
 // Get all restaurants
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorize(['student', 'admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query('SELECT * FROM Restaurants');
@@ -67,7 +69,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get a specific restaurant by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, authorize(['manager', 'student']), async (req, res) => {
     //console.log('Received request for restaurant with ID:', req.params.id); // Add this log
     try {
         const { id } = req.params;
@@ -86,7 +88,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Add a new menu item (product)
-router.post('/:id/menu', async (req, res) => {
+router.post('/:id/menu', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { id } = req.params; // The restaurant ID
     const { name, amount, description, stock } = req.body; // Get product data from the request body
 
@@ -111,7 +113,7 @@ router.post('/:id/menu', async (req, res) => {
 });
 
 // Get menu items for a specific restaurant
-router.get('/:id/menu', async (req, res) => {
+router.get('/:id/menu', authenticate, authorize(['student', 'manager']), async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -128,9 +130,8 @@ router.get('/:id/menu', async (req, res) => {
 });
 
 
-
 // Add a new restaurant
-router.post('/restaurants', async (req, res) => {
+router.post('/restaurants', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { Name, Location, Contact } = req.body;
         const pool = await poolPromise;
@@ -147,7 +148,7 @@ router.post('/restaurants', async (req, res) => {
 });
 
 // Update an existing restaurant
-router.put('/restaurants/:id', async (req, res) => {
+router.put('/restaurants/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Name, Location, Contact } = req.body;
@@ -166,7 +167,7 @@ router.put('/restaurants/:id', async (req, res) => {
 });
 
 // Update an existing menu item
-router.put('/:rid/menu/:id', async (req, res) => {
+router.put('/:rid/menu/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Item_Name, Item_Amount, Description, Stock } = req.body;
@@ -186,7 +187,7 @@ router.put('/:rid/menu/:id', async (req, res) => {
 });
 
 //update order status
-router.put('/:rid/orders/:id', async (req, res) => {
+router.put('/:rid/orders/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { rid, id } = req.params;
     const { Food_Status, Pickup_Time, Payment_Status } = req.body;
 
@@ -229,7 +230,7 @@ router.put('/:rid/orders/:id', async (req, res) => {
 
 
 // Get food orders for a restaurant
-router.get('/:rid/orders', async (req, res) => {
+router.get('/:rid/orders', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { rid } = req.params;
     try {
         const pool = await poolPromise;
@@ -279,7 +280,7 @@ router.get('/:rid/orders', async (req, res) => {
 
 
 // Delete a restaurant
-router.delete('/restaurants/:id', async (req, res) => {
+router.delete('/restaurants/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;

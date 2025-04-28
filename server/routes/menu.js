@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager  } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 // Get all menu items
-router.get('/menu', async (req, res) => {
+router.get('/menu', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query('SELECT * FROM Menu');
@@ -14,7 +16,7 @@ router.get('/menu', async (req, res) => {
 });
 
 // Get a specific menu item by ID
-router.get('/menu/:id', async (req, res) => {
+router.get('/menu/:id', authenticate, authorize(['manager', 'student']), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -33,7 +35,7 @@ router.get('/menu/:id', async (req, res) => {
 
 
 // Add a new menu item
-router.post('/menu', async (req, res) => {
+router.post('/menu', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { Item_Name, Item_Amount, Restaurant_ID, Description, Stock } = req.body;
         const pool = await poolPromise;
@@ -52,7 +54,7 @@ router.post('/menu', async (req, res) => {
 });
 
 // Update an existing menu item
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Item_Name, Item_Amount, Restaurant_ID, Description, Stock } = req.body;
@@ -73,7 +75,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete a menu item
-router.delete('/:rid/:id', async (req, res) => {
+router.delete('/:rid/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { rid, id } = req.params;
         const pool = await poolPromise;

@@ -3,7 +3,8 @@ const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { authenticate } = require('../middleware/auth'); 
+const { authenticate } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 router.get('/verify', authenticate, (req, res) => {
   if (req.user.role !== 'student') {
@@ -81,7 +82,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Get all students
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorize(['admin']), async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query('SELECT * FROM Students');
@@ -92,7 +93,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get active (unpaid) food orders for a student using the ActiveFoodOrders view
-router.get('/:id/active-orders', async (req, res) => {
+router.get('/:id/active-orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -118,7 +119,7 @@ router.get('/:id/active-orders', async (req, res) => {
 });
 
 // Get inactive (paid) food orders for a student using the ActiveFoodOrders view
-router.get('/:id/old-orders', async (req, res) => {
+router.get('/:id/old-orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -144,7 +145,7 @@ router.get('/:id/old-orders', async (req, res) => {
 });
 
 // Get active (unpaid) book orders for a student using the ActiveBookOrders view
-router.get('/:id/active-b_orders', async (req, res) => {
+router.get('/:id/active-b_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -170,7 +171,7 @@ router.get('/:id/active-b_orders', async (req, res) => {
 });
 
 // Get active (unpaid) book orders for a student using the ActiveBookOrders view
-router.get('/:id/old-b_orders', async (req, res) => {
+router.get('/:id/old-b_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -196,7 +197,7 @@ router.get('/:id/old-b_orders', async (req, res) => {
 });
 
 // Get active (unpaid) print jobs for a student using the ActiveBookOrders view
-router.get('/:id/active-p_orders', async (req, res) => {
+router.get('/:id/active-p_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -222,7 +223,7 @@ router.get('/:id/active-p_orders', async (req, res) => {
 });
 
 // Get inactive (paid) print jobs for a student using the ActiveBookOrders view
-router.get('/:id/old-p_orders', async (req, res) => {
+router.get('/:id/old-p_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -314,7 +315,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // Delete a student
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
   try {
     const pool = await poolPromise;
