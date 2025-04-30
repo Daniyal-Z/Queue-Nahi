@@ -865,7 +865,3 @@ GO
 --WHERE pay.Status = 'Paid'  -- Filter for paid orders
 --GROUP BY p.Roll_No, pj.Print_Job_ID, p.Total_Amount, pt.Type_Name, pj.No_Pages;
 --GO
-
---admin: '$2b$10$fBQbI1xeZK4gDStgwGvRb.eoLsM19L0e9ZUhrUZRSYc6BaQkuCcZS',
---ground: '$2b$10$D/JYUvJaq.Tj.V0wVIZV5uM31Tqa49q6NWtcl4FSO5Kphl0IGQB5.',
---photocopier: '$2b$10$ZLjpzddAII5.xpPi5HS2EeduKsG1y/RCT.hnhjnKmVZRObfebV8mG'
