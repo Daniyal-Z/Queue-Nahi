@@ -51,7 +51,6 @@ GO
 --    Restaurant_Status VARCHAR(20) CHECK (Restaurant_Status IN ('Open', 'Closed'))
 --);
 
-
 ---- 5. Menu table
 --CREATE TABLE Menu (
 --    Item_ID INT IDENTITY(1,1) PRIMARY KEY,
@@ -870,5 +869,3 @@ GO
 --admin: '$2b$10$fBQbI1xeZK4gDStgwGvRb.eoLsM19L0e9ZUhrUZRSYc6BaQkuCcZS',
 --ground: '$2b$10$D/JYUvJaq.Tj.V0wVIZV5uM31Tqa49q6NWtcl4FSO5Kphl0IGQB5.',
 --photocopier: '$2b$10$ZLjpzddAII5.xpPi5HS2EeduKsG1y/RCT.hnhjnKmVZRObfebV8mG'
-
-
