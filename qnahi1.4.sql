@@ -27,7 +27,17 @@ GO
 --    Roll_No INT,
 --    G_ID INT NOT NULL,
 --    B_Time DATETIME NOT NULL,
---    Slot INT NOT NULL
+--    SlotID INT NOT NULL
+--);
+
+---- Slots table    -- Remove G_ID and Day
+--CREATE TABLE Slots (
+--    SlotID INT IDENTITY(1,1) PRIMARY KEY,
+--    Day DATE,
+--    StartTime INT NOT NULL,
+--    EndTime INT NOT NULL,
+--	  Status VARCHAR(20) CHECK (Status IN ('Available', 'Booked')),
+--	  G_ID INT,
 --);
 
 ---- 4. Restaurants table
@@ -278,15 +288,9 @@ GO
 --    RETURN
 --  END
 
---  -- Insert new manager
---  INSERT INTO Managers (Email, Name, Password)
---  VALUES (@Email, @Name, @Password)
---END;
---GO
-
 ----Admin
 --INSERT INTO Admin (Email, Password) VALUES
---('admin@uni', 'pass');
+--('admin@uni', '$2b$10$fBQbI1xeZK4gDStgwGvRb.eoLsM19L0e9ZUhrUZRSYc6BaQkuCcZS');       --pass
 --GO
 
 ---- Default Photocopier
@@ -295,8 +299,8 @@ GO
 --GO
 
 --INSERT INTO Managers (Email, Name, Password) VALUES
---('ground@uni', 'Ali', 'groundM'),
---('photocopi@uni', 'Ahmed', 'photoM');
+--('ground@uni', 'Ali', '$2b$10$D/JYUvJaq.Tj.V0wVIZV5uM31Tqa49q6NWtcl4FSO5Kphl0IGQB5.'),     --groundM
+--('photocopi@uni', 'Ahmed', '$2b$10$ZLjpzddAII5.xpPi5HS2EeduKsG1y/RCT.hnhjnKmVZRObfebV8mG');               --photoM
 --GO
 
 --INSERT INTO Manager_Access (Mgr_ID, Type_Service_ID)
@@ -861,10 +865,3 @@ GO
 --WHERE pay.Status = 'Paid'  -- Filter for paid orders
 --GROUP BY p.Roll_No, pj.Print_Job_ID, p.Total_Amount, pt.Type_Name, pj.No_Pages;
 --GO
-
-
-
-
-
-
- 

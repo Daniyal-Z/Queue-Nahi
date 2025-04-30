@@ -8,6 +8,36 @@ const BookCafeModal = ({ onClose }) => {
   const [activeOrders, setActiveOrders] = useState([]); 
   const [oldOrders, setOldOrders] = useState([]); 
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
+
   useEffect(() => {
     const stored = localStorage.getItem("student");
     setStudent(JSON.parse(stored));
@@ -15,7 +45,7 @@ const BookCafeModal = ({ onClose }) => {
 
   const handleViewCatalogue = async () => {
     try {
-      const res = await fetch("http://localhost:3001/books/catalogue");
+      const res = await authorizedFetch("http://localhost:3001/books/catalogue");
       const data = await res.json();
       setBooks(data);
       setView("catalogue");
@@ -23,10 +53,10 @@ const BookCafeModal = ({ onClose }) => {
       console.error("Failed to load books:", err);
     }
   };
-
+  
   const handleViewActiveOrders = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/students/${student.id}/active-b_orders`);
+      const res = await authorizedFetch(`http://localhost:3001/students/${student.id}/active-b_orders`);
       if (res.ok) {
         const data = await res.json();
         setActiveOrders(data);
@@ -40,11 +70,10 @@ const BookCafeModal = ({ onClose }) => {
       setView("orders");
     }
   };
-
-  //Fetch Old Orders
+  
   const handleViewOldOrders = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/students/${student.id}/old-b_orders`);
+      const res = await authorizedFetch(`http://localhost:3001/students/${student.id}/old-b_orders`);
       if (res.ok) {
         const data = await res.json();
         setOldOrders(data);
@@ -62,7 +91,7 @@ const BookCafeModal = ({ onClose }) => {
   const handleQuantityChange = (bookId, value) => {
     setQuantities({ ...quantities, [bookId]: parseInt(value) || 0 });
   };
-
+  
   const handlePlaceOrder = async () => {
     const selectedBooks = books
       .filter(book => quantities[book.Book_ID] > 0)
@@ -70,33 +99,30 @@ const BookCafeModal = ({ onClose }) => {
         Book_ID: book.Book_ID,
         Quantity: quantities[book.Book_ID],
       }));
-
+  
     if (selectedBooks.length === 0) {
       alert("Please select at least one book to order.");
       return;
     }
-
+  
     const totalAmount = selectedBooks.reduce((sum, book) => {
       const bookDetails = books.find(b => b.Book_ID === book.Book_ID);
       return sum + bookDetails.Book_Amount * book.Quantity;
     }, 0);
-
+  
     const orderData = {
       roll_no: student.id,
       order_time: new Date(),
       total_amount: totalAmount,
       books: selectedBooks,
     };
-
+  
     try {
-      const res = await fetch("http://localhost:3001/books/catalogue/order", {
+      const res = await authorizedFetch("http://localhost:3001/books/catalogue/order", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(orderData),
+        body: JSON.stringify(orderData)
       });
-
+  
       if (res.ok) {
         alert("Order placed successfully!");
         setView("");
@@ -108,6 +134,7 @@ const BookCafeModal = ({ onClose }) => {
       alert("An error occurred while placing the order.");
     }
   };
+  
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">

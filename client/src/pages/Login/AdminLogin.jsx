@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const AdminLogin = () => {
-  const [rollNumber, setRollNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -12,23 +12,34 @@ const AdminLogin = () => {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3001/login/admin", {
+      const response = await fetch("http://localhost:3001/admins/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ rollNumber, password }),
+        body: JSON.stringify({
+           email,
+           password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
         setError(data.message || "Login failed");
-      } else {
-        // Save token/data if needed
-        localStorage.setItem("admin", JSON.stringify(data));
-        navigate("/admin/dashboard"); // redirect after login
-      }
+        return;
+      } 
+      // Store user data and token securely
+      localStorage.setItem("admin", JSON.stringify({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      }));
+      localStorage.setItem("access_token", data.token);
+
+      // Redirect to dashboard
+      navigate("/admin/dashboard");
+
     } catch (err) {
       setError("Something went wrong");
     }
@@ -43,10 +54,10 @@ const AdminLogin = () => {
         <h2 className="text-xl font-bold mb-4 text-center">Admin Login</h2>
 
         <input
-          type="text"
+          type="email"
           placeholder="Email"
-          value={rollNumber}
-          onChange={(e) => setRollNumber(e.target.value)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 mb-3 border rounded"
           required
         />

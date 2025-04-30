@@ -1,29 +1,51 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
+router.get('/verify', authenticate, (req, res) => {
+  if (req.user.role !== 'manager') {
+    return res.status(403).json({ valid: false, message: 'Manager access required' });
+  }
+  res.status(200).json({ 
+    valid: true,
+    user: req.user
+  });
+});
 
 // Manager Login
 router.post('/login', async (req, res) => {
-  const { rollNumber, password } = req.body;
+  const { email, password } = req.body;
 
   try {
     const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('Email', sql.VarChar, rollNumber)
-      .input('Password', sql.VarChar, password)
-      .execute('ManagerLogin');
+    
+    // 1. Get manager by email
+    const managerResult = await pool.request()
+      .input('Email', sql.VarChar, email)
+      .query(`
+        SELECT Mgr_ID, Name, Email, Password 
+        FROM Managers 
+        WHERE Email = @Email
+      `);
 
-    const manager = result.recordset[0];
-
+    const manager = managerResult.recordset[0];
+    
     if (!manager) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Now get their Type_Service
-    const typeResult = await pool
-      .request()
+    // 2. Verify password
+    const validPassword = await bcrypt.compare(password, manager.Password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // 3. Get manager type from Type_Service
+    const typeResult = await pool.request()
       .input('Mgr_ID', sql.Int, manager.Mgr_ID)
       .query(`
         SELECT ts.Type_Service
@@ -32,17 +54,39 @@ router.post('/login', async (req, res) => {
         WHERE ma.Mgr_ID = @Mgr_ID
       `);
 
-    const type = typeResult.recordset[0]?.Type_Service;
+    const managerType = typeResult.recordset[0]?.Type_Service;
+    if (!managerType) {
+      console.log({ message: 'No assigned service type' });
+    }
 
-    res.status(200).json({
+    // 4. Generate JWT token with role and type
+    const token = jwt.sign(
+      {
+        id: manager.Mgr_ID,
+        name: manager.Name,
+        email: manager.Email,
+        role: 'manager',
+        managerType // 'Restaurant', 'Ground', or 'Photocopier'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // 5. Return response
+    //const { Password, ...safeManagerData } = manager;
+    res.status(201).json({
       id: manager.Mgr_ID,
       name: manager.Name,
       email: manager.Email,
-      type: type
+      type: managerType,
+      role: 'manager',
+      token, // Send token to frontend
+      message: "Login successful"
     });
+
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -50,33 +94,48 @@ router.post('/login', async (req, res) => {
 router.post('/signup', async (req, res) => {
   try {
     const { email, name, pass } = req.body;
-
     const pool = await poolPromise;
+
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(pass, 10);
 
     await pool.request()
       .input("Email", sql.VarChar, email)
       .input("Name", sql.VarChar, name)
-      .input("Password", sql.VarChar, pass)
+      .input("Password", sql.VarChar, hashedPassword)
       .execute("SignupManager");
 
-    // Then fetch the newly created manager
+    // Fetch created manager
     const managerResult = await pool.request()
       .input("Email", sql.VarChar, email)
       .query("SELECT Mgr_ID, Name, Email FROM Managers WHERE Email = @Email");
 
     const manager = managerResult.recordset[0];
 
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: manager.Mgr_ID,
+        name: manager.Name,
+        email: manager.Email,
+        role: 'manager'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     res.status(201).json({
       id: manager.Mgr_ID,
       name: manager.Name,
       email: manager.Email,
-      type: "manager",  // Explicitly setting the type
+      role: 'manager',
+      token, // Send token to frontend
       message: "Manager registered successfully"
     });
+
   } catch (error) {
     console.error("Error during signup:", error);
 
-    // Check for duplicate email
     if (error.message.includes("Email already registered")) {
       return res.status(400).json({ message: "Email already registered" });
     }
@@ -85,27 +144,8 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// Add a new manager
-// router.post('/', async (req, res) => {
-//     try {
-//         const { email, name, pass } = req.body;
-//         const pool = await poolPromise;
-
-//         await pool.request()
-//             .input('email', sql.VarChar, email)
-//             .input('name', sql.VarChar, name)
-//             .input('pass', sql.VarChar, pass)
-//             .query('INSERT INTO Managers (Email, Name, Password) VALUES (@email, @name, @pass)');
-
-//         res.status(201).json({ message: 'Manager added successfully' });
-//     } catch (error) {
-//         console.error('Error inserting Manager:', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// });
-
 // Get all managers
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query('SELECT * FROM Managers');
@@ -116,27 +156,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get manager by ID
-router.get('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT * FROM Managers WHERE Manager_ID = @id');
-
-        if (result.recordset.length === 0) {
-            return res.status(404).json({ message: 'Manager not found' });
-        }
-        res.status(200).json(result.recordset[0]);
-    } catch (error) {
-        console.error('Error fetching manager:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
 // Update manager info
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, authorize(['manager']), async (req, res) => {       // so here when changing the password you would also need to hash it
     try {
         const { id } = req.params;
         const { email, name, pass } = req.body;
@@ -157,7 +178,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete a manager
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;

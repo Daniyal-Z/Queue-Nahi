@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const StudentLogin = () => {
-  const [rollNumber, setRollNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -10,28 +10,41 @@ const StudentLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-
+  
     try {
       const response = await fetch("http://localhost:3001/students/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ rollNumber, password }),
+        body: JSON.stringify({ 
+          email, 
+          password 
+        }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         setError(data.message || "Login failed");
-      } else {
-        // Save token/data if needed
-        localStorage.setItem("student", JSON.stringify(data));
-        console.log(data.name);
-        navigate("/student/dashboard"); // redirect after login
+        return;
       }
+  
+      // Store user data and token securely
+      localStorage.setItem("student", JSON.stringify({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      }));
+      localStorage.setItem("access_token", data.token);
+      
+      // Redirect to dashboard
+      navigate("/student/dashboard");
+  
     } catch (err) {
-      setError("Something went wrong");
+      setError("Network error - please try again later");
+      console.error("Login error:", err);
     }
   };
 
@@ -43,11 +56,12 @@ const StudentLogin = () => {
       >
         <h2 className="text-xl font-bold mb-4 text-center">Student Login</h2>
 
+
         <input
-          type="text"
+          type="email"  
           placeholder="Email"
-          value={rollNumber}
-          onChange={(e) => setRollNumber(e.target.value)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 mb-3 border rounded"
           required
         />

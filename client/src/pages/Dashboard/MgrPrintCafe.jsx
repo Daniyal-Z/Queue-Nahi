@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
 const MgrPrintCafe = () => {
-  const [manager, setManager] = useState(null);
-
+  
   const [showPricing, setShowPricing] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
   const [showPrintJobs, setShowPrintJobs] = useState(false);
@@ -23,18 +22,39 @@ const MgrPrintCafe = () => {
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
 
-  useEffect(() => {
-    const stored = localStorage.getItem("manager");
-    if (!stored) {
-      window.location.href = "/manager/login";
-    } else {
-      setManager(JSON.parse(stored));
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('No authentication token found. Redirecting to login.');
     }
-  }, []);
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  }; 
 
   useEffect(() => {
     if (showPricing) {
-      fetch("http://localhost:3001/print/printPricing")
+      authorizedFetch("http://localhost:3001/print/printPricing")
         .then((res) => res.json())
         .then((data) => setPricingData(data))
         .catch((err) => console.error("Error fetching pricing:", err));
@@ -43,7 +63,7 @@ const MgrPrintCafe = () => {
 
   const handleOpenPrintOrdersModal = async () => {
     try {
-      const res = await fetch("http://localhost:3001/print/orders");
+      const res = await authorizedFetch("http://localhost:3001/print/orders");
       const data = await res.json();
       const currentOrders = data.filter((order) => order.Status !== "Paid");
       setPrintOrders(currentOrders);
@@ -56,7 +76,7 @@ const MgrPrintCafe = () => {
   
   const handleOpenOldPrintOrdersModal = async () => {
     try {
-      const res = await fetch("http://localhost:3001/print/orders");
+      const res = await authorizedFetch("http://localhost:3001/print/orders");
       const data = await res.json();
       const currentOrders = data.filter((order) => order.Status === "Paid");
       setOldPrintOrders(currentOrders);
@@ -69,7 +89,7 @@ const MgrPrintCafe = () => {
 
   const handleMarkCompleted = async (pid) => {
     try {
-      const res = await fetch(`http://localhost:3001/print/orders/${pid}`, {
+      const res = await authorizedFetch(`http://localhost:3001/print/orders/${pid}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +99,7 @@ const MgrPrintCafe = () => {
   
       if (res.ok) {
         // Remove the completed order from the list
-        const updated = await fetch("http://localhost:3001/print/orders");
+        const updated = await authorizedFetch("http://localhost:3001/print/orders");
         const data = await updated.json();
         const currentOrders = data.filter((order) => order.Status !== "Paid");
         setPrintOrders(currentOrders);
@@ -100,7 +120,7 @@ const MgrPrintCafe = () => {
     setEditFeedback("");
   
     try {
-      const response = await fetch(`http://localhost:3001/print/types/${editItem.Type_ID}`, {
+      const response = await authorizedFetch(`http://localhost:3001/print/types/${editItem.Type_ID}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -114,7 +134,7 @@ const MgrPrintCafe = () => {
       if (response.ok) {
         setEditFeedback("✅ Print type updated!");
         // Refresh pricing data
-        const res = await fetch("http://localhost:3001/print/printPricing");
+        const res = await authorizedFetch("http://localhost:3001/print/printPricing");
         const data = await res.json();
         setPricingData(data);
       } else {
@@ -136,7 +156,7 @@ const MgrPrintCafe = () => {
     setFeedback("");
   
     try {
-      const response = await fetch("http://localhost:3001/print/types", {
+      const response = await authorizedFetch("http://localhost:3001/print/types", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

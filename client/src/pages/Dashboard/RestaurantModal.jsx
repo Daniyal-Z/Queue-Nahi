@@ -4,22 +4,69 @@ import MenuModal from "./MenuModal";
 const RestaurantModal = ({ onClose }) => {
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
-  const [roll_no, setRoll_No] = useState(null);
+  //const [roll_no, setRoll_No] = useState(null);
+
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
 
   useEffect(() => {
-    // Fetch restaurants
-    fetch("http://localhost:3001/restaurants")
-      .then(res => res.json())
-      .then(data => setRestaurants(data))
-      .catch(err => console.error("Failed to fetch restaurants:", err));
+    const fetchRestaurants = async () => {
+        try {
+            // 1. Get token from storage
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                throw new Error('No authentication token');
+            }
 
-    // Get Roll No. from localStorage
-    const storedRollNo = localStorage.getItem("id");
-    if (storedRollNo) {
-      setRoll_No(JSON.parse(storedRollNo)); // Set Roll No. in state
-      
-    }
-  }, []);
+            // 2. Make request with token
+            const response = await authorizedFetch("http://localhost:3001/restaurants");
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            setRestaurants(data);
+        } catch (err) {
+            console.error("Failed to fetch restaurants:", err);
+            // Optional: Redirect to login if unauthorized
+            if (err.message.includes('401')) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('student');
+                window.location.href = '/login/student';
+            }
+        }
+    };
+
+    fetchRestaurants();
+}, []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
