@@ -212,13 +212,14 @@ GO
 
 --ALTER TABLE Payments ADD CONSTRAINT fk_payments_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
 --ALTER TABLE Manager_Access ADD CONSTRAINT fk_manager_access_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
---ALTER TABLE Operational_Timings ADD CONSTRAINT fk_timings_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
+--ALTER TABLE Operational_Timings ADD CONSTRAINT fk_timings_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 
 ---- Add foreign key constraints for Manager connections
 --Alter Table Manager_Access ADD CONSTRAINT fk_manager_manager_access FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 --ALTER TABLE Photocopier ADD CONSTRAINT fk_photocopier_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID) ;
---ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurants_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID);
---ALTER TABLE Grounds ADD CONSTRAINT fk_grounds_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID);	
+--ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurants_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Grounds ADD CONSTRAINT fk_grounds_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID);
+--
 
 ---- Add foreign key constraints for Photocopier connections
 --ALTER TABLE Print_Jobs ADD CONSTRAINT fk_print_jobs_photocopier FOREIGN KEY (Photocopier_ID) REFERENCES Photocopier(Photocopier_ID) ON UPDATE CASCADE ON DELETE SET NULL;
