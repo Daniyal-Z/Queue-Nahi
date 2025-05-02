@@ -127,7 +127,7 @@ router.get('/orders', authenticate, authorize(['manager']), authenticateManager(
 
 
 // Get books
-router.get('/catalogue', authenticate, authorize(['manager', 'student']), async (req, res) => {
+router.get('/catalogue', authenticate, authorize(['manager', 'student', 'admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -188,7 +188,7 @@ router.put('/orders/:id', authenticate, authorize(['manager']), authenticateMana
 });
 
 // Delete a book
-router.delete('/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
+router.delete('/:id', authenticate, authorize(['manager', 'admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -198,6 +198,7 @@ router.delete('/:id', authenticate, authorize(['manager']), authenticateManager(
         
         res.json({ message: 'Book deleted successfully' });
     } catch (error) {
+        console.error("Error deleting book:", error); // Add this
         res.status(500).json({ error: error.message });
     }
 });

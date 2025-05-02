@@ -35,15 +35,19 @@ router.post('/login', async (req, res) => {
     const result = await pool.request()
       .input('Email', sql.VarChar, email)
       .query(`
-        SELECT Roll_No, Name, Email, Password 
+        SELECT Roll_No, Name, Email, Password, Active 
         FROM Students 
-        WHERE Email = @Email AND Active = 1
+        WHERE Email = @Email
       `);
 
     const student = result.recordset[0];
     
     if (!student) {
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (student.Active !== true) {
+      return res.status(403).json({ message: 'Your account has not been activated yet.' });
     }
 
     // 2. Verify password with bcrypt
@@ -78,17 +82,6 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get all students
-router.get('/', authenticate, authorize(['admin']), async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM Students');
-    res.status(200).json(result.recordset);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
@@ -274,6 +267,10 @@ router.post('/signup', async (req, res) => {
       .input("Password", sql.VarChar, hashedPassword) // Changed to hashed
       .execute("SignupStudent");
 
+    await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("UPDATE Students SET Active = 0 where Email = @Email");
+
     // 4. Fetch student details (keeping your existing logic)
     const studentResult = await pool.request()
       .input("Email", sql.VarChar, email)
@@ -311,27 +308,6 @@ router.post('/signup', async (req, res) => {
     }
 
     res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-// Delete a student
-router.delete('/:id', authenticate, authorize(['student']), async (req, res) => {
-  const { id } = req.params;
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM Students WHERE ID = @id');
-    
-    if (result.rowsAffected[0] === 0) 
-    {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.status(200).json({ message: 'Student deleted successfully' });
-  } catch (err) 
-  {
-    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

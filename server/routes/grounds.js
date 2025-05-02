@@ -17,7 +17,7 @@ router.get('/bookings/all', authenticate, authorize(['manager', 'student']), asy
 });
 
 // Get all grounds
-router.get('/', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
+router.get('/', authenticate, authorize(['manager', 'admin']), async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query('SELECT * FROM Grounds');
@@ -148,7 +148,7 @@ router.patch('/slots/:id/status', authenticate, authorize(['manager', 'student']
 });
 
 // Delete ground
-router.delete('/:id', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
+router.delete('/:id', authenticate, authorize(['manager', 'admin']), async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
