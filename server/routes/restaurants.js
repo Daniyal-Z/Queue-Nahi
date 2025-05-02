@@ -129,36 +129,19 @@ router.get('/:id/menu', authenticate, authorize(['student', 'manager']), async (
     }
 });
 
-
-// Add a new restaurant
-router.post('/restaurants', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
-    try {
-        const { Name, Location, Contact } = req.body;
-        const pool = await poolPromise;
-        await pool.request()
-            .input('Name', sql.VarChar, Name)
-            .input('Location', sql.VarChar, Location)
-            .input('Contact', sql.VarChar, Contact)
-            .query('INSERT INTO Restaurants (Name, Location, Contact) VALUES (@Name, @Location, @Contact)');
-        
-        res.status(201).json({ message: 'Restaurant added successfully' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Update an existing restaurant
-router.put('/restaurants/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
+router.put('/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { Name, Location, Contact } = req.body;
+        const { Name, Location, Contact, Status } = req.body;
         const pool = await poolPromise;
         await pool.request()
             .input('id', sql.Int, id)
             .input('Name', sql.VarChar, Name)
             .input('Location', sql.VarChar, Location)
             .input('Contact', sql.VarChar, Contact)
-            .query('UPDATE Restaurants SET Name = @Name, Location = @Location, Contact = @Contact WHERE Restaurant_ID = @id');
+            .input('Status', sql.VarChar, Status)
+            .query('UPDATE Restaurants SET Restaurant_Name = @Name, Location = @Location, Phone = @Contact, Restaurant_Status = @Status WHERE Restaurant_ID = @id');
         
         res.json({ message: 'Restaurant updated successfully' });
     } catch (error) {
@@ -288,6 +271,23 @@ router.delete('/', authenticate, authorize(['admin']), async (req, res) => {
             .input('id', sql.Int, id)
             .query('DELETE FROM Restaurants WHERE Restaurant_ID = @id');
         
+        res.json({ message: 'Restaurant deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete a restaurant - Manager
+router.delete('/manager', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
+    try {
+        const { id, mgrId } = req.body;
+        const pool = await poolPromise;
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('mgrId', sql.Int, mgrId)
+            .query('DELETE FROM Restaurants WHERE Restaurant_ID = @id AND Mgr_ID = @mgrId');
+        
+
         res.json({ message: 'Restaurant deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
