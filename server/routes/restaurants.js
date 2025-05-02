@@ -280,9 +280,9 @@ router.get('/:rid/orders', authenticate, authorize(['manager']), authenticateMan
 
 
 // Delete a restaurant
-router.delete('/restaurants/:id', authenticate, authorize(['admin']), async (req, res) => {
+router.delete('/', authenticate, authorize(['admin']), async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id } = req.body;
         const pool = await poolPromise;
         await pool.request()
             .input('id', sql.Int, id)

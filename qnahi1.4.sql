@@ -201,17 +201,18 @@ GO
 --ALTER TABLE Food_Orders ADD CONSTRAINT fk_food_orders_restaurants FOREIGN KEY (Restaurant_ID) REFERENCES Restaurants(Restaurant_ID) ON UPDATE CASCADE ON DELETE SET NULL;
 
 ---- Order items constraints
---ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_orders FOREIGN KEY (FOrder_ID) REFERENCES Food_Orders(FOrder_ID);
---ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_menu FOREIGN KEY (Item_ID) REFERENCES Menu(Item_ID) ON UPDATE CASCADE ON DELETE CASCADE;
---ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_orders FOREIGN KEY (BOrder_ID) REFERENCES Book_Orders(BOrder_ID);
---ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_books FOREIGN KEY (Book_ID) REFERENCES Books(Book_ID);
+--ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_orders FOREIGN KEY (FOrder_ID) REFERENCES Food_Orders(FOrder_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_menu FOREIGN KEY (Item_ID) REFERENCES Menu(Item_ID) ON UPDATE NO ACTION ON DELETE NO ACTION;
+--ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_orders FOREIGN KEY (BOrder_ID) REFERENCES Book_Orders(BOrder_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_books FOREIGN KEY (Book_ID) REFERENCES Books(Book_ID) ON UPDATE CASCADE ON DELETE NO ACTION;
+
 
 ---- Print shop constraints
---ALTER TABLE Print_Jobs ADD CONSTRAINT fk_print_jobs_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID);
---ALTER TABLE Print_Type_Pricing ADD CONSTRAINT fk_print_type_pricing_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID);
+--ALTER TABLE Print_Jobs ADD CONSTRAINT fk_print_jobs_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID) ON UPDATE NO ACTION ON DELETE NO ACTION;
+--ALTER TABLE Print_Type_Pricing ADD CONSTRAINT fk_print_type_pricing_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 
---ALTER TABLE Payments ADD CONSTRAINT fk_payments_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
---ALTER TABLE Manager_Access ADD CONSTRAINT fk_manager_access_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
+--ALTER TABLE Payments ADD CONSTRAINT fk_payments_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE NO ACTION;
+--ALTER TABLE Manager_Access ADD CONSTRAINT fk_manager_access_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 --ALTER TABLE Operational_Timings ADD CONSTRAINT fk_timings_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 
 ---- Add foreign key constraints for Manager connections

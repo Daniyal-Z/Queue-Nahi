@@ -13,6 +13,10 @@ const AdminDashboard = () => {
   const [students, setStudents] = useState([]);
   const [activeTab, setActiveTab] = useState("active");
   const [managers, setManagers] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
+  const [grounds, setGrounds] = useState([]);
+  const [books, setBooks] = useState([]);
+
 
   const navigate = useNavigate();
 
@@ -162,6 +166,136 @@ const AdminDashboard = () => {
         console.error("Failed to delete manager:", err);
       }
   };
+
+  const fetchRestaurants = async () => {
+    try {
+      const res = await authorizedFetch('http://localhost:3001/restaurants');
+      const data = await res.json();
+      setRestaurants(data);
+    } catch (err) {
+      console.error("Failed to fetch restaurants:", err);
+    }
+  };  
+
+  const deleteRestaurant = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this restaurant?")) return;
+  
+    const pass = prompt("Please enter your admin password to confirm deletion:");
+  
+    if (!pass) return;
+  
+    try {
+      const res = await fetch('http://localhost:3001/admins/verify/identity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: admin.email, password: pass })
+      });
+  
+      const data = await res.json();
+  
+      if (data.message !== true) {
+        alert("Password verification failed. Deletion cancelled.");
+        return;
+      }
+  
+      await authorizedFetch('http://localhost:3001/restaurants', {
+        method: 'DELETE',
+        body: JSON.stringify({ id })
+      });
+  
+      fetchRestaurants();
+    } catch (err) {
+      console.error("Failed to delete restaurant:", err);
+    }
+  };
+  
+  const fetchGrounds = async () => {
+    try {
+      const res = await authorizedFetch('http://localhost:3001/grounds');
+      const data = await res.json();
+      setGrounds(data);
+    } catch (err) {
+      console.error("Failed to fetch grounds:", err);
+    }
+  };
+  
+  const deleteGround = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this ground?")) return;
+  
+    const pass = prompt("Please enter your admin password to confirm deletion:");
+  
+    if (!pass) return;
+  
+    try {
+      const res = await fetch('http://localhost:3001/admins/verify/identity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: admin.email, password: pass })
+      });
+  
+      const data = await res.json();
+  
+      if (data.message !== true) {
+        alert("Password verification failed. Deletion cancelled.");
+        return;
+      }
+  
+      await authorizedFetch(`http://localhost:3001/grounds/${id}`, {
+        method: "DELETE"
+      });
+  
+      fetchGrounds(); // refresh the list
+    } catch (err) {
+      console.error("Failed to delete ground:", err);
+    }
+  };
+  
+  const fetchBooks = async () => {
+    try {
+      const res = await authorizedFetch('http://localhost:3001/books/catalogue');
+      const data = await res.json();
+      setBooks(data);
+    } catch (err) {
+      console.error("Failed to fetch books:", err);
+    }
+  };
+
+  // const deleteBook = async (id) => {
+  //   if (!window.confirm("Are you sure you want to delete this book?")) return;
+  
+  //   const pass = prompt("Please enter your admin password to confirm deletion:");
+  //   if (!pass) return;
+  
+  //   try {
+  //     const res = await fetch('http://localhost:3001/admins/verify/identity', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json'
+  //       },
+  //       body: JSON.stringify({ email: admin.email, password: pass })
+  //     });
+  
+  //     const data = await res.json();
+  
+  //     if (data.message !== true) {
+  //       alert("Password verification failed. Deletion cancelled.");
+  //       return;
+  //     }
+  
+  //     await authorizedFetch(`http://localhost:3001/books/${id}`, {
+  //       method: "DELETE"
+  //     });
+  
+  //     fetchBooks(); // refresh the list
+  //   } catch (err) {
+  //     console.error("Failed to delete book:", err);
+  //   }
+  // };
+  
   
 
   if (loading) {
@@ -185,21 +319,29 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <button onClick={() => {setShowStudents(true); fetchStudents(); }} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        <button onClick={() => {setShowStudents(true); fetchStudents(); }}
+         className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
           View Students
         </button>
-        <button onClick={() => { setShowManagers(true); fetchManagers(); }} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+        <button onClick={() => { setShowManagers(true); fetchManagers(); }}
+         className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
           View Managers
         </button>
-        <button onClick={() => setShowRestaurants(true)} className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+        <button
+          onClick={() => { setShowRestaurants(true); fetchRestaurants(); }}
+          className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+        >
           View Restaurants
         </button>
-        <button onClick={() => setShowGrounds(true)} className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
+        <button onClick={() => { setShowGrounds(true); fetchGrounds(); }}
+         className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
           View Grounds
         </button>
-        <button onClick={() => setShowBooks(true)} className="bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600">
+        <button onClick={() => { setShowBooks(true); fetchBooks(); }}
+         className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
           View Books
         </button>
+
       </div>
 
       {/* Popups */}
@@ -311,19 +453,107 @@ const AdminDashboard = () => {
 
       {showRestaurants && (
         <Modal title="Restaurants" onClose={() => setShowRestaurants(false)}>
-          <p>Restaurant data will go here.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full table-auto border">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border px-4 py-2">ID</th>
+                  <th className="border px-4 py-2">Name</th>
+                  <th className="border px-4 py-2">Email</th>
+                  <th className="border px-4 py-2">Phone</th>
+                  <th className="border px-4 py-2">Location</th>
+                  <th className="border px-4 py-2">Status</th>
+                  <th className="border px-4 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {restaurants.map(restaurant => (
+                  <tr key={restaurant.Restaurant_ID} className="text-center">
+                    <td className="border px-4 py-2">{restaurant.Restaurant_ID}</td>
+                    <td className="border px-4 py-2">{restaurant.Restaurant_Name}</td>
+                    <td className="border px-4 py-2">{restaurant.Email}</td>
+                    <td className="border px-4 py-2">{restaurant.Phone}</td>
+                    <td className="border px-4 py-2">{restaurant.Location}</td>
+                    <td className="border px-4 py-2">{restaurant.Restaurant_Status}</td>
+                    <td className="border px-4 py-2">
+                      <button
+                        className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() => deleteRestaurant(restaurant.Restaurant_ID)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Modal>
       )}
+
       {showGrounds && (
         <Modal title="Grounds" onClose={() => setShowGrounds(false)}>
-          <p>Ground data will go here.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full table-auto border">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border px-4 py-2">ID</th>
+                  <th className="border px-4 py-2">Type</th>
+                  <th className="border px-4 py-2">Status</th>
+                  <th className="border px-4 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grounds.map(ground => (
+                  <tr key={ground.G_ID} className="text-center">
+                    <td className="border px-4 py-2">{ground.G_ID}</td>
+                    <td className="border px-4 py-2">{ground.Ground_Type}</td>
+                    <td className="border px-4 py-2">{ground.G_Status}</td>
+                    <td className="border px-4 py-2">
+                      {ground.G_ID !== 1 && (
+                        <button
+                          className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => deleteGround(ground.G_ID)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Modal>
       )}
-      {showBooks && (
-        <Modal title="Books" onClose={() => setShowBooks(false)}>
-          <p>Book data will go here.</p>
-        </Modal>
-      )}
+
+    {showBooks && (
+      <Modal title="Books" onClose={() => setShowBooks(false)}>
+        <div className="overflow-x-auto">
+          <table className="w-full table-auto border">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border px-4 py-2">ID</th>
+                <th className="border px-4 py-2">Name</th>
+                <th className="border px-4 py-2">Price (Rs.)</th>
+                <th className="border px-4 py-2">Stock</th>
+              </tr>
+            </thead>
+            <tbody>
+              {books.map(book => (
+                <tr key={book.Book_ID} className="text-center">
+                  <td className="border px-4 py-2">{book.Book_ID}</td>
+                  <td className="border px-4 py-2">{book.Book_Name}</td>
+                  <td className="border px-4 py-2">{book.Book_Amount}</td>
+                  <td className="border px-4 py-2">{book.Stock}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Modal>
+    )}
+
     </div>
   );
 };
