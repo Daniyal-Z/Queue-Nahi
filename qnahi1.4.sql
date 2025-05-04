@@ -27,7 +27,17 @@ GO
 --    Roll_No INT,
 --    G_ID INT NOT NULL,
 --    B_Time DATETIME NOT NULL,
---    Slot INT NOT NULL
+--    SlotID INT NOT NULL
+--);
+
+---- Slots table    -- Remove G_ID and Day
+--CREATE TABLE Slots (
+--    SlotID INT IDENTITY(1,1) PRIMARY KEY,
+--    Day DATE,
+--    StartTime INT NOT NULL,
+--    EndTime INT NOT NULL,
+--	  Status VARCHAR(20) CHECK (Status IN ('Available', 'Booked')),
+--	  G_ID INT,
 --);
 
 ---- 4. Restaurants table
@@ -191,24 +201,26 @@ GO
 --ALTER TABLE Food_Orders ADD CONSTRAINT fk_food_orders_restaurants FOREIGN KEY (Restaurant_ID) REFERENCES Restaurants(Restaurant_ID) ON UPDATE CASCADE ON DELETE SET NULL;
 
 ---- Order items constraints
---ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_orders FOREIGN KEY (FOrder_ID) REFERENCES Food_Orders(FOrder_ID);
---ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_menu FOREIGN KEY (Item_ID) REFERENCES Menu(Item_ID) ON UPDATE CASCADE ON DELETE CASCADE;
---ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_orders FOREIGN KEY (BOrder_ID) REFERENCES Book_Orders(BOrder_ID);
---ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_books FOREIGN KEY (Book_ID) REFERENCES Books(Book_ID);
+--ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_orders FOREIGN KEY (FOrder_ID) REFERENCES Food_Orders(FOrder_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Food_Order_Items ADD CONSTRAINT fk_food_order_items_menu FOREIGN KEY (Item_ID) REFERENCES Menu(Item_ID) ON UPDATE NO ACTION ON DELETE NO ACTION;
+--ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_orders FOREIGN KEY (BOrder_ID) REFERENCES Book_Orders(BOrder_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Book_Order_Items ADD CONSTRAINT fk_book_order_items_books FOREIGN KEY (Book_ID) REFERENCES Books(Book_ID) ON UPDATE CASCADE ON DELETE NO ACTION;
+
 
 ---- Print shop constraints
---ALTER TABLE Print_Jobs ADD CONSTRAINT fk_print_jobs_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID);
---ALTER TABLE Print_Type_Pricing ADD CONSTRAINT fk_print_type_pricing_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID);
+--ALTER TABLE Print_Jobs ADD CONSTRAINT fk_print_jobs_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID) ON UPDATE NO ACTION ON DELETE NO ACTION;
+--ALTER TABLE Print_Type_Pricing ADD CONSTRAINT fk_print_type_pricing_types FOREIGN KEY (Type_ID) REFERENCES Print_Types(Type_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 
---ALTER TABLE Payments ADD CONSTRAINT fk_payments_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
---ALTER TABLE Manager_Access ADD CONSTRAINT fk_manager_access_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
---ALTER TABLE Operational_Timings ADD CONSTRAINT fk_timings_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID);
+--ALTER TABLE Payments ADD CONSTRAINT fk_payments_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE NO ACTION;
+--ALTER TABLE Manager_Access ADD CONSTRAINT fk_manager_access_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Operational_Timings ADD CONSTRAINT fk_timings_type_service FOREIGN KEY (Type_Service_ID) REFERENCES Type_Service(Type_Service_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 
 ---- Add foreign key constraints for Manager connections
 --Alter Table Manager_Access ADD CONSTRAINT fk_manager_manager_access FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID) ON UPDATE CASCADE ON DELETE CASCADE;
 --ALTER TABLE Photocopier ADD CONSTRAINT fk_photocopier_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID) ;
---ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurants_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID);
---ALTER TABLE Grounds ADD CONSTRAINT fk_grounds_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID);	
+--ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurants_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Grounds ADD CONSTRAINT fk_grounds_manager FOREIGN KEY (Mgr_ID) REFERENCES Managers(Mgr_ID);
+--
 
 ---- Add foreign key constraints for Photocopier connections
 --ALTER TABLE Print_Jobs ADD CONSTRAINT fk_print_jobs_photocopier FOREIGN KEY (Photocopier_ID) REFERENCES Photocopier(Photocopier_ID) ON UPDATE CASCADE ON DELETE SET NULL;
@@ -278,15 +290,9 @@ GO
 --    RETURN
 --  END
 
---  -- Insert new manager
---  INSERT INTO Managers (Email, Name, Password)
---  VALUES (@Email, @Name, @Password)
---END;
---GO
-
 ----Admin
 --INSERT INTO Admin (Email, Password) VALUES
---('admin@uni', 'pass');
+--('admin@uni', '$2b$10$fBQbI1xeZK4gDStgwGvRb.eoLsM19L0e9ZUhrUZRSYc6BaQkuCcZS');       --pass
 --GO
 
 ---- Default Photocopier
@@ -295,8 +301,8 @@ GO
 --GO
 
 --INSERT INTO Managers (Email, Name, Password) VALUES
---('ground@uni', 'Ali', 'groundM'),
---('photocopi@uni', 'Ahmed', 'photoM');
+--('ground@uni', 'Ali', '$2b$10$D/JYUvJaq.Tj.V0wVIZV5uM31Tqa49q6NWtcl4FSO5Kphl0IGQB5.'),     --groundM
+--('photocopi@uni', 'Ahmed', '$2b$10$ZLjpzddAII5.xpPi5HS2EeduKsG1y/RCT.hnhjnKmVZRObfebV8mG');               --photoM
 --GO
 
 --INSERT INTO Manager_Access (Mgr_ID, Type_Service_ID)
@@ -861,10 +867,3 @@ GO
 --WHERE pay.Status = 'Paid'  -- Filter for paid orders
 --GROUP BY p.Roll_No, pj.Print_Job_ID, p.Total_Amount, pt.Type_Name, pj.No_Pages;
 --GO
-
-
-
-
-
-
- 

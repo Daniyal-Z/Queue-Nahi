@@ -17,20 +17,58 @@ const PrintCafeModal = ({ onClose }) => {
   const [totalAmount, setTotalAmount] = useState(0);
   const [feedback, setFeedback] = useState("");
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
+
   useEffect(() => {
-      const stored = localStorage.getItem("student");
+    const stored = localStorage.getItem("student");
+    if (stored) {
       setStudent(JSON.parse(stored));
-    }, []);
-
-  useEffect(() => {
-    // Fetch print pricing view
-    fetch("http://localhost:3001/print/printPricing")
-      .then((res) => res.json())
-      .then((data) => setPricingData(data))
-      .catch((err) => console.error("Error fetching pricing:", err));
+    }
   }, []);
-
-  // Update total whenever type or pages changes
+  
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const res = await authorizedFetch("http://localhost:3001/print/printPricing");
+        const data = await res.json();
+        setPricingData(data);
+      } catch (err) {
+        console.error("Error fetching pricing:", err);
+      }
+    };
+  
+    fetchPricing();
+  }, []);
+  
+  // Update total whenever type or pages change
   useEffect(() => {
     if (selectedType && noPages) {
       const typeObj = pricingData.find((item) => item.Type_ID === parseInt(selectedType));
@@ -40,10 +78,10 @@ const PrintCafeModal = ({ onClose }) => {
       }
     }
   }, [selectedType, noPages, pricingData]);
-
+  
   const fetchCurrentOrders = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/students/${student.id}/active-p_orders`);
+      const res = await authorizedFetch(`http://localhost:3001/students/${student.id}/active-p_orders`);
       const data = await res.json();
       setCurrentOrders(data);
       setShowCurrentOrders(true);
@@ -54,7 +92,7 @@ const PrintCafeModal = ({ onClose }) => {
   
   const fetchOldOrders = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/students/${student.id}/old-p_orders`);
+      const res = await authorizedFetch(`http://localhost:3001/students/${student.id}/old-p_orders`);
       const data = await res.json();
       setOldOrders(data);
       setShowOldOrders(true);
@@ -63,17 +101,13 @@ const PrintCafeModal = ({ onClose }) => {
     }
   };
   
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFeedback("");
   
     try {
-      const roll_no = localStorage.getItem("roll_no"); // assuming roll_no is stored after login
-  
-      const response = await fetch("http://localhost:3001/print/print-job", {
+      const response = await authorizedFetch("http://localhost:3001/print/print-job", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roll_no: student.id,
           type_id: parseInt(selectedType),
@@ -97,7 +131,7 @@ const PrintCafeModal = ({ onClose }) => {
       console.error("Error submitting job:", error);
       setFeedback("❌ Error sending print job.");
     }
-  };
+  };  
   
 
   return (

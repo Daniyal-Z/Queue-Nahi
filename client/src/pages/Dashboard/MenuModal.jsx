@@ -6,16 +6,78 @@ const MenuModal = ({ restaurant, onClose }) => {
   //const [roll_no, setRoll_No] = useState(null);
   const [student, setStudent] = useState(null);
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
+
   useEffect(() => {
-    fetch(`http://localhost:3001/restaurants/${restaurant.Restaurant_ID}/menu`)
-      .then(res => res.json())
-      .then(data => setMenuItems(data))
-      .catch(err => console.error("Failed to fetch menu:", err));
-      const stored = localStorage.getItem("student");
-      console.log(stored);
-      setStudent(JSON.parse(stored));
-    
-      //console.log(roll_no);
+    const fetchMenu = async () => {
+      try {
+        // 1. Get token and student data
+        const token = localStorage.getItem('access_token');
+        const storedStudent = localStorage.getItem('student');
+        
+        if (!token || !storedStudent) {
+          throw new Error('Missing authentication data');
+        }
+  
+        // 2. Parse student data (with error handling)
+        const student = JSON.parse(storedStudent);
+        setStudent(student);
+  
+        // 3. Fetch menu with authorization
+        const response = await authorizedFetch(`http://localhost:3001/restaurants/${restaurant.Restaurant_ID}/menu`);
+  
+        // 4. Handle response
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch menu');
+        }
+  
+        const menuData = await response.json();
+        setMenuItems(menuData);
+  
+      } catch (err) {
+        console.error("Menu fetch error:", err);
+        
+        // 5. Handle unauthorized access
+        if (err.message.includes('401') || err.message.includes('403')) {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('student');
+          window.location.href = '/login/student';
+        }
+      }
+    };
+  
+    if (restaurant?.Restaurant_ID) {
+      fetchMenu();
+    }
   }, [restaurant]);
 
   const handleQuantityChange = (itemId, qty) => {
@@ -33,43 +95,64 @@ const MenuModal = ({ restaurant, onClose }) => {
   };
 
   const placeOrder = async () => {
-    //const roll_no = localStorage.getItem("Roll_No");
+    // 1. Validate at least one item is selected
     if (Object.values(orderItems).every(qty => qty === 0)) {
-        alert("Please select at least one item.");
-        return;
-      }
-
-    const payload = {
-      roll_no: student.id,
-      restaurant_id: restaurant.Restaurant_ID,
-      order_time: new Date().toISOString(),
-      total_amount: calculateTotal(),
-      items: Object.entries(orderItems)
-        .filter(([_, qty]) => qty > 0)
-        .map(([id, qty]) => ({
-          item_id: parseInt(id),
-          quantity: qty,
-        })),
-    };
-
+      alert("Please select at least one item.");
+      return;
+    }
+  
+    // 2. Prepare payload with token
     try {
-      const res = await fetch("http://localhost:3001/restaurants/food-orders", {
+      const token = localStorage.getItem('access_token');
+      if (!token) throw new Error('No authentication token found');
+  
+      const payload = {
+        roll_no: student.id,
+        restaurant_id: restaurant.Restaurant_ID,
+        order_time: new Date().toISOString(),
+        total_amount: calculateTotal(),
+        items: Object.entries(orderItems)
+          .filter(([_, qty]) => qty > 0)
+          .map(([id, qty]) => ({
+            item_id: parseInt(id),
+            quantity: qty,
+          })),
+      };
+  
+      // 3. Make authenticated request
+      const response = await authorizedFetch("http://localhost:3001/restaurants/food-orders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
       });
-
-      if (res.ok) {
-        alert("Order placed successfully!");
-        onClose(); // close menu
-      } else {
-        alert("Failed to place order.");
+  
+      // 4. Handle response
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Failed to place order');
       }
+  
+      alert("Order placed successfully!");
+      onClose();
+      
+      // 5. Optional: Refresh order history
+      //fetchOrderHistory(); 
+  
     } catch (error) {
       console.error("Order error:", error);
-      alert("Something went wrong.");
+      
+      // Handle unauthorized access
+      if (error.message.includes('401') || error.message.includes('403')) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('student');
+        window.location.href = '/login/student';
+        return;
+      }
+  
+      alert(error.message || "Something went wrong");
     }
   };
 

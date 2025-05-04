@@ -12,6 +12,36 @@ const GroundModal = ({ onClose, studentRollNo }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('student');
+      window.location.href = '/login/student';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };
+
   const fetchAvailableGrounds = async () => {
     try {
       const res = await fetch("http://localhost:3001/grounds/available");

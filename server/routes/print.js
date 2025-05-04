@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager  } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
-
-router.get("/printPricing", async (req, res) => {
+router.get("/printPricing", authenticate, authorize(['manager', 'student']), async (req, res) => {
     try {
       const pool = await poolPromise;
       const result = await pool.request().query("SELECT * FROM PrintPricingView");
@@ -14,7 +15,7 @@ router.get("/printPricing", async (req, res) => {
     }
   });
 
-router.post("/types", async (req, res) => {
+router.post("/types", authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
   const { Type_Name, Price_Per_Page } = req.body;
 
   try {
@@ -34,7 +35,7 @@ router.post("/types", async (req, res) => {
 });
 
 // Update an existing type
-router.put('/types/:id', async (req, res) => {
+router.put('/types/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Type_Name, Price_Per_Page } = req.body;
@@ -61,7 +62,7 @@ router.put('/types/:id', async (req, res) => {
 });
 
 // Place new print job
-router.post("/print-job", async (req, res) => {
+router.post("/print-job", authenticate, authorize(['student']), async (req, res) => {
   const { roll_no, type_id, doc_info, total_amount, no_pages } = req.body;
 
   try {
@@ -83,7 +84,7 @@ router.post("/print-job", async (req, res) => {
 });
 
 // Get all print orders for manager view
-router.get('/orders', async (req, res) => {
+router.get('/orders', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
   try {
       const pool = await poolPromise;
       const result = await pool.request().query(`
@@ -119,7 +120,7 @@ router.get('/orders', async (req, res) => {
 });
 
 //update order status
-router.put('/orders/:pid', async (req, res) => {
+router.put('/orders/:pid', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     const { pid } = req.params;
     const { Payment_Status } = req.body;
 

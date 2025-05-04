@@ -25,18 +25,49 @@ const GManagerDashboard = () => {
   });
   const [error, setError] = useState("");
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem("manager");
     if (!stored) {
-      window.location.href = "/manager/login";
+      window.location.href = "/login/manager";
     } else {
       setManager(JSON.parse(stored));
     }
   }, []);
+
   // Fetch bookings for a specific ground
   const fetchBookings = async (groundId) => {
     try {
-      const res = await fetch(`http://localhost:3001/grounds/${groundId}/bookings`);
+      const res = await authorizedFetch(`http://localhost:3001/grounds/${groundId}/bookings`);
       const data = await res.json();
       setBookings(data); 
       setSelectedGroundForBookings(groundId); // optional
@@ -49,7 +80,7 @@ const GManagerDashboard = () => {
   
   const fetchGrounds = async () => {
     try {
-      const res = await fetch("http://localhost:3001/grounds");
+      const res = await authorizedFetch("http://localhost:3001/grounds");
       const data = await res.json();
       if (res.ok) {
         setGrounds(data);
@@ -64,7 +95,7 @@ const GManagerDashboard = () => {
 
   const fetchGroundSlots = async (groundId) => {
     try {
-      const res = await fetch(`http://localhost:3001/grounds/${groundId}/slots`);
+      const res = await authorizedFetch(`http://localhost:3001/grounds/${groundId}/slots`);
       const data = await res.json();
       setGroundSlots(data);
       setSelectedGroundForSlots(groundId);
@@ -79,7 +110,7 @@ const GManagerDashboard = () => {
     setError("");
     
     try {
-      const res = await fetch("http://localhost:3001/grounds", {
+      const res = await authorizedFetch("http://localhost:3001/grounds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ground_type: groundName })
@@ -101,7 +132,7 @@ const GManagerDashboard = () => {
     setError("");
     
     try {
-      const res = await fetch(
+      const res = await authorizedFetch(
         `http://localhost:3001/grounds/${editingGround.G_ID}`,
         {
           method: "PUT",
@@ -126,7 +157,7 @@ const GManagerDashboard = () => {
     try {
       if (!window.confirm('Are you sure you want to delete this booking?')) return;
       
-      const res = await fetch(`http://localhost:3001/grounds/bookings/${bookingId}`, {
+      const res = await authorizedFetch(`http://localhost:3001/grounds/bookings/${bookingId}`, {
         method: 'DELETE'
       });
       
@@ -138,7 +169,7 @@ const GManagerDashboard = () => {
       // Also update the slot status back to Available
       const booking = bookings.find(b => b.Booking_ID === bookingId);
       if (booking) {
-        await fetch(`http://localhost:3001/slots/${booking.SlotID}/status`, {
+        await authorizedFetch(`http://localhost:3001/slots/${booking.SlotID}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'Available' })
@@ -157,7 +188,7 @@ const GManagerDashboard = () => {
     if (!window.confirm("Are you sure you want to delete this ground?")) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/grounds/${id}`, {
+      const response = await authorizedFetch(`http://localhost:3001/grounds/${id}`, {
         method: "DELETE"
       });
       
@@ -189,7 +220,7 @@ const GManagerDashboard = () => {
         endTime: newSlot.EndTime
       });
   
-      const response = await fetch(
+      const response = await authorizedFetch(
         `http://localhost:3001/grounds/${selectedGroundForSlots}/slots`, 
         {
           method: "POST",
@@ -223,7 +254,7 @@ const GManagerDashboard = () => {
     try {
       if (!window.confirm('Are you sure you want to delete this slot?')) return;
   
-      const res = await fetch(
+      const res = await authorizedFetch(
         `http://localhost:3001/grounds/${selectedGroundForSlots}/slots/${slotId}`,
         { method: 'DELETE' }
       );
@@ -243,7 +274,7 @@ const GManagerDashboard = () => {
     try {
       if (!window.confirm('Are you sure you want to delete this booking?')) return;
   
-      const res = await fetch(`http://localhost:3001/grounds/bookings/${bookingId}`, {
+      const res = await authorizedFetch(`http://localhost:3001/grounds/bookings/${bookingId}`, {
         method: 'DELETE',
       });
       if (!res.ok) {

@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 // routes/restaurant.js
-router.get('/by-manager/:mgrId', async (req, res) => {
+router.get('/by-manager/:mgrId', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { mgrId } = req.params;
   
     try {
@@ -22,7 +24,7 @@ router.get('/by-manager/:mgrId', async (req, res) => {
 
 // Function to place the order
 // routes/food-orders.js
-router.post('/food-orders', async (req, res) => {
+router.post('/food-orders', authenticate, authorize(['student']), async (req, res) => {
     const { roll_no, restaurant_id, order_time, total_amount, items } = req.body;
 
     // Prepare items for table-valued parameter
@@ -56,7 +58,7 @@ router.post('/food-orders', async (req, res) => {
 
 
 // Get all restaurants
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorize(['student', 'admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query('SELECT * FROM Restaurants');
@@ -66,19 +68,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.get("/restaurants/status", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Restaurant_Status");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching restaurant status:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
 // Get a specific restaurant by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, authorize(['manager', 'student']), async (req, res) => {
     //console.log('Received request for restaurant with ID:', req.params.id); // Add this log
     try {
         const { id } = req.params;
@@ -97,7 +88,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Add a new menu item (product)
-router.post('/:id/menu', async (req, res) => {
+router.post('/:id/menu', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { id } = req.params; // The restaurant ID
     const { name, amount, description, stock } = req.body; // Get product data from the request body
 
@@ -122,7 +113,7 @@ router.post('/:id/menu', async (req, res) => {
 });
 
 // Get menu items for a specific restaurant
-router.get('/:id/menu', async (req, res) => {
+router.get('/:id/menu', authenticate, authorize(['student', 'manager']), async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -138,37 +129,19 @@ router.get('/:id/menu', async (req, res) => {
     }
 });
 
-
-
-// Add a new restaurant
-router.post('/restaurants', async (req, res) => {
-    try {
-        const { Name, Location, Contact } = req.body;
-        const pool = await poolPromise;
-        await pool.request()
-            .input('Name', sql.VarChar, Name)
-            .input('Location', sql.VarChar, Location)
-            .input('Contact', sql.VarChar, Contact)
-            .query('INSERT INTO Restaurants (Name, Location, Contact) VALUES (@Name, @Location, @Contact)');
-        
-        res.status(201).json({ message: 'Restaurant added successfully' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Update an existing restaurant
-router.put('/restaurants/:id', async (req, res) => {
+router.put('/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { Name, Location, Contact } = req.body;
+        const { Name, Location, Contact, Status } = req.body;
         const pool = await poolPromise;
         await pool.request()
             .input('id', sql.Int, id)
             .input('Name', sql.VarChar, Name)
             .input('Location', sql.VarChar, Location)
             .input('Contact', sql.VarChar, Contact)
-            .query('UPDATE Restaurants SET Name = @Name, Location = @Location, Contact = @Contact WHERE Restaurant_ID = @id');
+            .input('Status', sql.VarChar, Status)
+            .query('UPDATE Restaurants SET Restaurant_Name = @Name, Location = @Location, Phone = @Contact, Restaurant_Status = @Status WHERE Restaurant_ID = @id');
         
         res.json({ message: 'Restaurant updated successfully' });
     } catch (error) {
@@ -177,7 +150,7 @@ router.put('/restaurants/:id', async (req, res) => {
 });
 
 // Update an existing menu item
-router.put('/:rid/menu/:id', async (req, res) => {
+router.put('/:rid/menu/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Item_Name, Item_Amount, Description, Stock } = req.body;
@@ -197,7 +170,7 @@ router.put('/:rid/menu/:id', async (req, res) => {
 });
 
 //update order status
-router.put('/:rid/orders/:id', async (req, res) => {
+router.put('/:rid/orders/:id', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { rid, id } = req.params;
     const { Food_Status, Pickup_Time, Payment_Status } = req.body;
 
@@ -239,9 +212,8 @@ router.put('/:rid/orders/:id', async (req, res) => {
 });
 
 
-
 // Get food orders for a restaurant
-router.get('/:rid/orders', async (req, res) => {
+router.get('/:rid/orders', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     const { rid } = req.params;
     try {
         const pool = await poolPromise;
@@ -291,9 +263,9 @@ router.get('/:rid/orders', async (req, res) => {
 
 
 // Delete a restaurant
-router.delete('/restaurants/:id', async (req, res) => {
+router.delete('/', authenticate, authorize(['admin']), async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id } = req.body;
         const pool = await poolPromise;
         await pool.request()
             .input('id', sql.Int, id)
@@ -305,15 +277,21 @@ router.delete('/restaurants/:id', async (req, res) => {
     }
 });
 
-router.get("/activeFoodOrders", async (req, res) => {
+// Delete a restaurant - Manager
+router.delete('/manager', authenticate, authorize(['manager']), authenticateManager('Restaurant'), async (req, res) => {
     try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Active_Food_Orders");
-      res.status(200).json(result.recordset);
+        const { id, mgrId } = req.body;
+        const pool = await poolPromise;
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('mgrId', sql.Int, mgrId)
+            .query('DELETE FROM Restaurants WHERE Restaurant_ID = @id AND Mgr_ID = @mgrId');
+        
+
+        res.json({ message: 'Restaurant deleted successfully' });
     } catch (error) {
-      console.error("Error fetching active food orders:", error);
-      res.status(500).json({ message: "Server error" });
+        res.status(500).json({ error: error.message });
     }
-  });
+});
 
 module.exports = router;

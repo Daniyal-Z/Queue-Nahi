@@ -11,16 +11,44 @@ const MgrBookShop = () => {
   const [orders, setOrders] = useState([]);
   const [oldOrders, setOldOrders] = useState([]);
 
-
-
   // Form state
   const [bookName, setBookName] = useState("");
   const [bookAmount, setBookAmount] = useState("");
   const [stock, setStock] = useState("");
 
+  const authorizedFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+  
+    // If token is missing, redirect immediately
+    if (!token) {
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('No authentication token found. Redirecting to login.');
+    }
+  
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+  
+    // If token is invalid (expired, tampered, etc.)
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('manager');
+      window.location.href = '/login/manager';
+      throw new Error('Authentication failed. Redirecting to login.');
+    }
+  
+    return response;
+  };  
+
   useEffect(() => {
     if (showCatalogue) {
-      fetch("http://localhost:3001/books/catalogue")
+      authorizedFetch("http://localhost:3001/books/catalogue")
         .then((res) => res.json())
         .then((data) => setCatalogue(data))
         .catch((err) => {
@@ -32,7 +60,7 @@ const MgrBookShop = () => {
 
   const handleOpenOrdersModal = async () => {
     try {
-      const res = await fetch("http://localhost:3001/books/orders");
+      const res = await authorizedFetch("http://localhost:3001/books/orders");
       const data = await res.json();
       const currentOrders = data.filter((order) => order.Payment_Status !== "Paid");
       setOrders(currentOrders);
@@ -45,7 +73,7 @@ const MgrBookShop = () => {
   
   const handleOpenOldOrdersModal = async () => {
     try {
-      const res = await fetch("http://localhost:3001/books/orders");
+      const res = await authorizedFetch("http://localhost:3001/books/orders");
       const data = await res.json();
       const completedOrders = data.filter((order) => order.Payment_Status === "Paid");
       setOldOrders(completedOrders);
@@ -58,7 +86,7 @@ const MgrBookShop = () => {
   
   const markOrderAsCompleted = async (orderId) => {
     try {
-      const res = await fetch(`http://localhost:3001/books/orders/${orderId}`, {
+      const res = await authorizedFetch(`http://localhost:3001/books/orders/${orderId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -69,7 +97,7 @@ const MgrBookShop = () => {
       if (res.ok) {
         alert("Order marked as completed.");
         // Refresh current orders list
-        const updated = await fetch("http://localhost:3001/books/orders");
+        const updated = await authorizedFetch("http://localhost:3001/books/orders");
         const data = await updated.json();
         const currentOrders = data.filter((order) => order.Payment_Status !== "Paid");
         setOrders(currentOrders);
@@ -92,7 +120,7 @@ const MgrBookShop = () => {
     }
 
     try {
-      const res = await fetch("http://localhost:3001/books/catalogue", {
+      const res = await authorizedFetch("http://localhost:3001/books/catalogue", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -137,7 +165,7 @@ const MgrBookShop = () => {
     }
   
     try {
-      const res = await fetch(`http://localhost:3001/books/catalogue/${editingBook.Book_ID}`, {
+      const res = await authorizedFetch(`http://localhost:3001/books/catalogue/${editingBook.Book_ID}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -158,7 +186,7 @@ const MgrBookShop = () => {
         setBookAmount("");
         setStock("");
         // Refresh catalogue
-        fetch("http://localhost:3001/books/catalogue")
+        authorizedFetch("http://localhost:3001/books/catalogue")
           .then((res) => res.json())
           .then((data) => setCatalogue(data));
       } else {

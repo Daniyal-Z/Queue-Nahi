@@ -1,71 +1,92 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { authenticate } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
-
+router.get('/verify', authenticate, (req, res) => {
+  if (req.user.role !== 'student') {
+    return res.status(403).json({
+        valid: false,
+        message: 'Student access required'
+    });
+  }
+  // If middleware passes, token is valid
+  res.status(200).json({ 
+    valid: true,
+    user: {
+      id: req.user.id,
+      name: req.user.name,
+      role: req.user.role
+    }
+  });
+});
 
 // Student Login
 router.post('/login', async (req, res) => {
-  const { rollNumber, password } = req.body;
+  const { email, password } = req.body; 
 
   try {
     const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('Email', sql.VarChar, rollNumber)
-      .input('Password', sql.VarChar, password)
-      .execute('StudentLogin');
+    
+    // 1. Directly query student by email
+    const result = await pool.request()
+      .input('Email', sql.VarChar, email)
+      .query(`
+        SELECT Roll_No, Name, Email, Password, Active 
+        FROM Students 
+        WHERE Email = @Email
+      `);
 
     const student = result.recordset[0];
     
     if (!student) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    res.status(200).json({
+    if (student.Active !== true) {
+      return res.status(403).json({ message: 'Your account has not been activated yet.' });
+    }
+
+    // 2. Verify password with bcrypt
+    const validPassword = await bcrypt.compare(password, student.Password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // 3. Generate JWT token
+    const token = jwt.sign(
+      {
+        id: student.Roll_No,
+        name: student.Name,
+        email: student.Email,
+        role: 'student'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // 4. Return sanitized user data + token
+    //const { Password, ...userData } = student;
+    res.status(201).json({
       id: student.Roll_No,
       name: student.Name,
-      email: student.Email
+      email: student.Email,
+      token, 
+      message: "Login successful"
     });
-    
+
 
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// Get all students
-router.get('/', async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM Students');
-    res.status(200).json(result.recordset);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// Get student by ID
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM Students WHERE ID = @id');
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.status(200).json(result.recordset[0]);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 // Get active (unpaid) food orders for a student using the ActiveFoodOrders view
-router.get('/:id/active-orders', async (req, res) => {
+router.get('/:id/active-orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -91,7 +112,7 @@ router.get('/:id/active-orders', async (req, res) => {
 });
 
 // Get inactive (paid) food orders for a student using the ActiveFoodOrders view
-router.get('/:id/old-orders', async (req, res) => {
+router.get('/:id/old-orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -117,7 +138,7 @@ router.get('/:id/old-orders', async (req, res) => {
 });
 
 // Get active (unpaid) book orders for a student using the ActiveBookOrders view
-router.get('/:id/active-b_orders', async (req, res) => {
+router.get('/:id/active-b_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -143,7 +164,7 @@ router.get('/:id/active-b_orders', async (req, res) => {
 });
 
 // Get active (unpaid) book orders for a student using the ActiveBookOrders view
-router.get('/:id/old-b_orders', async (req, res) => {
+router.get('/:id/old-b_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -169,7 +190,7 @@ router.get('/:id/old-b_orders', async (req, res) => {
 });
 
 // Get active (unpaid) print jobs for a student using the ActiveBookOrders view
-router.get('/:id/active-p_orders', async (req, res) => {
+router.get('/:id/active-p_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -195,7 +216,7 @@ router.get('/:id/active-p_orders', async (req, res) => {
 });
 
 // Get inactive (paid) print jobs for a student using the ActiveBookOrders view
-router.get('/:id/old-p_orders', async (req, res) => {
+router.get('/:id/old-p_orders', authenticate, authorize(['student']), async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -225,28 +246,63 @@ router.get('/:id/old-p_orders', async (req, res) => {
 router.post('/signup', async (req, res) => {
   try {
     const { email, name, pass } = req.body;
-
     const pool = await poolPromise;
 
+    // 1. First check if email exists (optional extra check)
+    const exists = await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("SELECT 1 FROM Students WHERE Email = @Email");
+
+    if (exists.recordset.length > 0) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    // 2. Hash password before calling stored procedure
+    const hashedPassword = await bcrypt.hash(pass, 10);
+
+    // 3. Call your existing stored procedure with hashed password
     await pool.request()
       .input("Email", sql.VarChar, email)
       .input("Name", sql.VarChar, name)
-      .input("Password", sql.VarChar, pass)
+      .input("Password", sql.VarChar, hashedPassword) // Changed to hashed
       .execute("SignupStudent");
 
-      const student = result.recordset[0];
+    await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("UPDATE Students SET Active = 0 where Email = @Email");
 
-      res.status(200).json({
+    // 4. Fetch student details (keeping your existing logic)
+    const studentResult = await pool.request()
+      .input("Email", sql.VarChar, email)
+      .query("SELECT Roll_No, Name, Email FROM Students WHERE Email = @Email");
+
+    const student = studentResult.recordset[0];
+
+    // 5. Generate JWT token (new security addition)
+    const token = jwt.sign(
+      {
         id: student.Roll_No,
-        name: student.Name,
+        role: 'student',
         email: student.Email,
-      });
+        name: student.Name
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-    res.status(201).json({ message: "Student registered successfully" });
+    // 6. Return same response format + token
+    res.status(201).json({
+      id: student.Roll_No,
+      name: student.Name,
+      email: student.Email,
+      token, // New field
+      message: "Student registered successfully"
+    });
+
   } catch (error) {
     console.error("Error during signup:", error);
 
-    // Check for duplicate email
+    // Preserve your existing error handling
     if (error.message.includes("Email already registered")) {
       return res.status(400).json({ message: "Email already registered" });
     }
@@ -254,94 +310,5 @@ router.post('/signup', async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
-
-// Update a student
-router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, rollNumber, department } = req.body;
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('id', sql.Int, id)
-      .input('name', sql.NVarChar, name)
-      .input('rollNumber', sql.NVarChar, rollNumber)
-      .input('department', sql.NVarChar, department)
-      .query('UPDATE Students SET Name = @name, RollNumber = @rollNumber, Department = @department WHERE ID = @id');
-    
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.status(200).json({ message: 'Student updated successfully' });
-  } catch (err) 
-  {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// Delete a student
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM Students WHERE ID = @id');
-    
-    if (result.rowsAffected[0] === 0) 
-    {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.status(200).json({ message: 'Student deleted successfully' });
-  } catch (err) 
-  {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-router.get("/studentBookings", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Bookings");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student bookings:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-  
-router.get("/studentFoodOrders", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Food_Orders");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student food orders:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-  
-router.get("/studentPrintJobs", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Print_Jobs");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student print jobs:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-  
-router.get("/studentBookOrders", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Student_Book_Orders");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching student book orders:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
 
 module.exports = router;

@@ -1,20 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
-
-// Get all books
-router.get('/books', async (req, res) => {
-    try {
-        const pool = await poolPromise;
-        const result = await pool.request().query('SELECT * FROM Books');
-        res.json(result.recordset);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 // Get a specific book by ID
-router.get('/books/:id', async (req, res) => {
+router.get('/books/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -31,25 +22,8 @@ router.get('/books/:id', async (req, res) => {
     }
 });
 
-// // Add a new book
-// router.post('/books', async (req, res) => {
-//     try {
-//         const { Book_Name, Book_Amount, Stock } = req.body;
-        
-//         const pool = await poolPromise;
-//         await pool.request()
-//             .input('Book_Name', sql.VarChar, Book_Name)
-//             .input('Book_Amount', sql.Decimal, Book_Amount)
-//             .query('INSERT INTO Books (Book_Name, Book_Amount) VALUES (@Book_Name, @Book_Amount)');
-        
-//         res.status(201).json({ message: 'Book added successfully' });
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-//     }
-// });
-
 // Add a new book
-router.post('/catalogue', async (req, res) => {
+router.post('/catalogue', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     const { Book_Name, Book_Amount, Stock } = req.body; // Get product data from the request body
 
     try {
@@ -68,7 +42,7 @@ router.post('/catalogue', async (req, res) => {
 });
 
 // new book order
-router.post('/catalogue/order', async (req, res) => {
+router.post('/catalogue/order', authenticate, authorize(['student']), async (req, res) => {
     const { roll_no, order_time, total_amount, books } = req.body;
 
     // Prepare books for table-valued parameter (TVP)
@@ -100,7 +74,7 @@ router.post('/catalogue/order', async (req, res) => {
 });
 
 // Get all book orders (with roll number and book details)
-router.get('/orders', async (req, res) => {
+router.get('/orders', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -152,9 +126,8 @@ router.get('/orders', async (req, res) => {
 });
 
 
-
 // Get books
-router.get('/catalogue', async (req, res) => {
+router.get('/catalogue', authenticate, authorize(['manager', 'student', 'admin']), async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request()
@@ -169,7 +142,7 @@ router.get('/catalogue', async (req, res) => {
 
 
 // Update an existing book
-router.put('/catalogue/:id', async (req, res) => {
+router.put('/catalogue/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     try {
         const { id } = req.params;
         const { Book_Name, Book_Amount, Stock } = req.body;
@@ -190,7 +163,7 @@ router.put('/catalogue/:id', async (req, res) => {
 });
 
 //update order status
-router.put('/orders/:id', async (req, res) => {
+router.put('/orders/:id', authenticate, authorize(['manager']), authenticateManager('Photocopier'), async (req, res) => {
     const { id } = req.params;
     const { Payment_Status } = req.body;
 
@@ -215,7 +188,7 @@ router.put('/orders/:id', async (req, res) => {
 });
 
 // Delete a book
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, authorize(['manager', 'admin']), async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -225,21 +198,10 @@ router.delete('/:id', async (req, res) => {
         
         res.json({ message: 'Book deleted successfully' });
     } catch (error) {
+        console.error("Error deleting book:", error); // Add this
         res.status(500).json({ error: error.message });
     }
 });
-
-router.get("/bookOrderStatus", async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().query("SELECT * FROM Book_Order_Status");
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error("Error fetching book order status:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
 
 
 module.exports = router;

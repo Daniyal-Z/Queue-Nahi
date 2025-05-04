@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../dbConn');
+const { authenticate, authenticateManager } = require('../middleware/authnMiddleware'); 
+const { authorize } = require('../middleware/authzMiddleware'); 
 
 // Get all bookings
-router.get('/bookings/all', async (req, res) => {
+router.get('/bookings/all', authenticate, authorize(['manager', 'student']), async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request()
@@ -13,8 +15,9 @@ router.get('/bookings/all', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 // Get all grounds
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorize(['manager', 'admin']), async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query('SELECT * FROM Grounds');
@@ -25,7 +28,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get available grounds
-router.get('/available', async (req, res) => { 
+router.get('/available', authenticate, authorize(['manager', 'student']), async (req, res) => { 
   try { 
     const pool = await poolPromise; 
     const result = await pool.request()
@@ -37,7 +40,7 @@ router.get('/available', async (req, res) => {
 });
 
 // Get ground by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, authorize(['manager', 'student']), async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
@@ -55,7 +58,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Add new ground
-router.post('/', async (req, res) => {
+router.post('/', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   const { ground_type } = req.body;
   
   try {
@@ -91,7 +94,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update ground
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { id } = req.params;
     const { Ground_Type, G_Status } = req.body;
@@ -110,7 +113,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Update ground status
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { id } = req.params;
     const { G_Status } = req.body;
@@ -126,7 +129,8 @@ router.patch('/:id/status', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-router.patch('/slots/:id/status', async (req, res) => {
+
+router.patch('/slots/:id/status', authenticate, authorize(['manager', 'student']), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -144,7 +148,7 @@ router.patch('/slots/:id/status', async (req, res) => {
 });
 
 // Delete ground
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, authorize(['manager', 'admin']), async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
@@ -184,7 +188,7 @@ router.delete('/:id', async (req, res) => {
 
 
 // Get bookings for a specific ground
-router.get('/:gid/bookings', async (req, res) => {
+router.get('/:gid/bookings', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { gid } = req.params;
     
@@ -224,8 +228,9 @@ router.get('/:gid/bookings', async (req, res) => {
     });
   }
 });
+
 // Get available slots for a ground
-router.get('/:id/slots', async (req, res) => {
+router.get('/:id/slots', authenticate, authorize(['manager', 'student']), async (req, res) => {
   try {
     const { id } = req.params;
     const { date } = req.query; // Optional date filter
@@ -251,9 +256,11 @@ router.get('/:id/slots', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 //delete slot from grounds (ground manager)
 // This route deletes a slot from the database. It first checks if there are any bookings associated with the slot.
-router.delete('/:gid/slots/:slotId', async (req, res) => {
+
+router.delete('/:gid/slots/:slotId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { gid, slotId } = req.params;
 
@@ -276,7 +283,8 @@ router.delete('/:gid/slots/:slotId', async (req, res) => {
     });
   }
 });
-router.delete('/bookings/:bookingId', async (req, res) => {
+
+router.delete('/bookings/:bookingId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { bookingId } = req.params;
     const pool = await poolPromise;
@@ -302,7 +310,7 @@ router.delete('/bookings/:bookingId', async (req, res) => {
 });
 
 // Get bookings for a specific user
-router.delete('/bookings/:bookingId', async (req, res) => {
+router.delete('/bookings/:bookingId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { bookingId } = req.params;
 
@@ -318,8 +326,9 @@ router.delete('/bookings/:bookingId', async (req, res) => {
     return res.status(500).json({ error: 'Failed to delete booking' });
   }
 });
+
 // Add new slot
-router.post('/:id/slots', async (req, res) => {
+router.post('/:id/slots', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { id } = req.params;
     const { date, startTime, endTime } = req.body; // Note: camelCase vs PascalCase
@@ -358,8 +367,9 @@ router.post('/:id/slots', async (req, res) => {
     });
   }
 });
+
 // Book a ground
-router.post('/book', async (req, res) => {
+router.post('/book', authenticate, authorize(['student']), async (req, res) => {
   const transaction = new sql.Transaction(await poolPromise);
   
   try {
@@ -407,4 +417,6 @@ router.post('/book', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+
 module.exports = router;
