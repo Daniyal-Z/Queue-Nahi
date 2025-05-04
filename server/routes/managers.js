@@ -194,4 +194,40 @@ router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
     }
 });
 
+// Manager Verify
+router.post('/verify/identity', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const pool = await poolPromise;
+    
+    // 1. Get manager by email
+    const managerResult = await pool.request()
+      .input('Email', sql.VarChar, email)
+      .query(`
+        SELECT Password 
+        FROM Managers
+        WHERE Email = @Email
+      `);
+
+    const manager = managerResult.recordset[0];
+    
+    if (!manager) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // 2. Verify password
+    const validPassword = await bcrypt.compare(password, manager.Password);
+    if (!validPassword) {
+      return res.status(401).json({ message: false });
+    }
+
+    res.status(200).json({ message: true });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 module.exports = router;
