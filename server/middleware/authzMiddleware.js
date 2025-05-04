@@ -13,6 +13,7 @@ const authorize = (allowedRoles) => {
           yourRole: req.user.role
         });
       }
+
       next();
     };
   };

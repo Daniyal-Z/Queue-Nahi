@@ -27,18 +27,17 @@ GO
 --    Roll_No INT,
 --    G_ID INT NOT NULL,
 --    B_Time DATETIME NOT NULL,
+--    Day DATE NOT NULL,
 --    SlotID INT NOT NULL
 --);
 
----- Slots table    -- Remove G_ID and Day
+---- Slots table   
 --CREATE TABLE Slots (
 --    SlotID INT IDENTITY(1,1) PRIMARY KEY,
---    Day DATE,
 --    StartTime INT NOT NULL,
 --    EndTime INT NOT NULL,
---	  Status VARCHAR(20) CHECK (Status IN ('Available', 'Booked')),
---	  G_ID INT,
 --);
+
 
 ---- 4. Restaurants table
 --CREATE TABLE Restaurants (
@@ -195,6 +194,7 @@ GO
 
 ---- Grounds-related constraints
 --ALTER TABLE Booking ADD CONSTRAINT fk_booking_grounds FOREIGN KEY (G_ID) REFERENCES Grounds(G_ID) ON UPDATE CASCADE ON DELETE CASCADE;
+--ALTER TABLE Booking ADD CONSTRAINT fk_booking_slots FOREIGN KEY (SlotID) REFERENCES Slots(SlotID) ON UPDATE CASCADE ON DELETE NO ACTION;
 
 ---- Restaurant-related constraints
 --ALTER TABLE Menu ADD CONSTRAINT fk_menu_restaurants FOREIGN KEY (Restaurant_ID) REFERENCES Restaurants(Restaurant_ID) ON UPDATE CASCADE ON DELETE CASCADE;
