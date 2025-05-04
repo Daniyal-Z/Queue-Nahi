@@ -9,7 +9,14 @@ router.get('/bookings/all', authenticate, authorize(['manager', 'student']), asy
   try {
     const pool = await poolPromise;
     const result = await pool.request()
-      .query('SELECT * FROM Booking ORDER BY B_Time DESC');
+      .query(`SELECT B.Booking_ID, B.Roll_No, 
+        B.Day, B.G_ID, G.Ground_Type, S.StartTime, 
+        S.EndTime, B.B_Time FROM Booking B 
+        INNER JOIN Grounds G
+        ON B.G_ID = G.G_ID
+        INNER JOIN Slots S
+        ON B.SlotID = S.SlotID
+        ORDER BY B_Time DESC`);
     res.json(result.recordset);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -130,7 +137,7 @@ router.patch('/:id/status', authenticate, authorize(['manager']), authenticateMa
   }
 });
 
-router.patch('/slots/:id/status', authenticate, authorize(['manager', 'student']), async (req, res) => {
+router.patch('/slots/:id/status', authenticate, authorize(['manager']), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -205,15 +212,14 @@ router.get('/:gid/bookings', authenticate, authorize(['manager']), authenticateM
           B.Booking_ID,
           B.Roll_No,
           G.Ground_Type, 
-          S.Day, 
+          B.Day, 
           S.StartTime, 
-          S.EndTime, 
-          S.Status AS Slot_Status, 
+          S.EndTime,
           G.G_Status AS Ground_Status, 
           B.B_Time
         FROM Booking B
         INNER JOIN Slots S ON B.SlotID = S.SlotID
-        INNER JOIN Grounds G ON S.G_ID = G.G_ID
+        INNER JOIN Grounds G ON B.G_ID = G.G_ID
         WHERE G.G_ID = @groundId
         ORDER BY B.B_Time DESC
       `);
@@ -229,29 +235,41 @@ router.get('/:gid/bookings', authenticate, authorize(['manager']), authenticateM
   }
 });
 
+// Get all slots
+router.get('/slots/all', authenticate, authorize(['manager', 'student']), async (req, res) => {
+  console.log("Hello");
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .query('SELECT * FROM Slots');
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get available slots for a ground
-router.get('/:id/slots', authenticate, authorize(['manager', 'student']), async (req, res) => {
+router.post('/:id/slots', authenticate, authorize(['manager', 'student']), async (req, res) => {
   try {
     const { id } = req.params;
-    const { date } = req.query; // Optional date filter
+    const { date } = req.body;
     
     const pool = await poolPromise;
-    let query = 'SELECT * FROM Slots WHERE G_ID = @gid AND Status = \'Available\'';
-    
-    // If date parameter is provided, filter by date
-    if (date) {
-      query += ' AND CONVERT(DATE, Day) = CONVERT(DATE, @date)';
-    }
+    const result = await pool.request()
+    .input('gid', sql.Int, id)
+    .input('date', sql.Date, date)
+    .query(`
+      SELECT s.* FROM Slots s 
+      WHERE NOT EXISTS 
+      (SELECT 1 FROM Booking b 
+      WHERE b.G_ID = @gid
+      AND b.Day = @date
+      AND b.SlotID = s.SlotID)`)
 
-    const request = pool.request()
-      .input('gid', sql.Int, id);
-    
-    if (date) {
-      request.input('date', sql.Date, date);
-    }
 
-    const slotsResult = await request.query(query);
-    res.json(slotsResult.recordset);
+    return res.status(200).json(result.recordset);
+    
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -260,9 +278,9 @@ router.get('/:id/slots', authenticate, authorize(['manager', 'student']), async 
 //delete slot from grounds (ground manager)
 // This route deletes a slot from the database. It first checks if there are any bookings associated with the slot.
 
-router.delete('/:gid/slots/:slotId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
+router.delete('/slots/:slotId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
-    const { gid, slotId } = req.params;
+    const { slotId } = req.params;
 
     const pool = await poolPromise;
 
@@ -284,32 +302,7 @@ router.delete('/:gid/slots/:slotId', authenticate, authorize(['manager']), authe
   }
 });
 
-router.delete('/bookings/:bookingId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const pool = await poolPromise;
-
-    // Delete the booking
-    const result = await pool.request()
-      .input('bookingId', sql.Int, bookingId)
-      .query('DELETE FROM Booking WHERE Booking_ID = @bookingId');
-
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ error: 'Booking not found' });
-    }
-
-    return res.status(200).json({ message: 'Booking deleted successfully' });
-
-  } catch (error) {
-    console.error('Error deleting booking:', error);
-    return res.status(500).json({ 
-      error: 'Failed to delete booking',
-      details: error.message 
-    });
-  }
-});
-
-// Get bookings for a specific user
+// delete booking
 router.delete('/bookings/:bookingId', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -327,38 +320,40 @@ router.delete('/bookings/:bookingId', authenticate, authorize(['manager']), auth
   }
 });
 
+
 // Add new slot
-router.post('/:id/slots', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
+router.post('/slots', authenticate, authorize(['manager']), authenticateManager('Ground'), async (req, res) => {
   try {
-    const { id } = req.params;
-    const { date, startTime, endTime } = req.body; // Note: camelCase vs PascalCase
+    const { startTime, endTime } = req.body;
 
-    // Better validation
-    if (!date) return res.status(400).json({ message: 'Date is required' });
-    if (!startTime) return res.status(400).json({ message: 'Start time is required' });
-    if (!endTime) return res.status(400).json({ message: 'End time is required' });
-
-    // Additional validation
-    if (startTime >= endTime) {
+    // Validation
+    if (startTime === undefined || startTime === null)
+      return res.status(400).json({ message: 'Start time is required' });
+    if (endTime === undefined || endTime === null)
+      return res.status(400).json({ message: 'End time is required' });
+    if (startTime >= endTime)
       return res.status(400).json({ message: 'End time must be after start time' });
-    }
 
     const pool = await poolPromise;
-    const result = await pool.request()
-      .input('Date', sql.Date, date)
+
+    // Check if this exact slot already exists
+    const checkResult = await pool.request()
       .input('StartTime', sql.Int, startTime)
       .input('EndTime', sql.Int, endTime)
-      .input('G_ID', sql.Int, id)
-      .query(`
-        INSERT INTO Slots (Day, StartTime, EndTime, G_ID, Status)
-        VALUES (@Date, @StartTime, @EndTime, @G_ID, 'Available')
-        SELECT SCOPE_IDENTITY() AS SlotID
-      `);
-    
-    res.status(201).json({ 
-      message: 'Slot added successfully',
-      slotId: result.recordset[0].SlotID
-    });
+      .query('SELECT SlotID FROM Slots WHERE StartTime = @StartTime AND EndTime = @EndTime');
+
+    if (checkResult.recordset.length > 0) {
+      return res.status(409).json({ message: 'Slot with same start or end time already exists' });
+    }
+
+    // Insert if not exists
+    await pool.request()
+      .input('StartTime', sql.Int, startTime)
+      .input('EndTime', sql.Int, endTime)
+      .query('INSERT INTO Slots (StartTime, EndTime) VALUES (@StartTime, @EndTime)');
+
+    res.status(201).json({ message: 'Slot added successfully' });
+
   } catch (error) {
     console.error('Error adding slot:', error);
     res.status(500).json({ 
@@ -378,37 +373,17 @@ router.post('/book', authenticate, authorize(['student']), async (req, res) => {
     await transaction.begin();
     const request = new sql.Request(transaction);
 
-    // 1. Check slot availability
-    const slotResult = await request
-      .input('slot_id_param', sql.Int, slot_id)  // Changed parameter name
-      .query('SELECT Status FROM Slots WHERE SlotID = @slot_id_param');  // Updated reference
-    
-    if (slotResult.recordset.length === 0) {
-      await transaction.rollback();
-      return res.status(404).json({ message: 'Slot not found' });
-    }
-    
-    if (slotResult.recordset[0].Status !== 'Available') {
-      await transaction.rollback();
-      return res.status(400).json({ message: 'Slot not available' });
-    }
-
     // 2. Create booking
     await request
       .input('roll_no', sql.Int, roll_no)
       .input('g_id', sql.Int, g_id)
       .input('b_time', sql.DateTime, new Date(date))
+      .input('date', sql.Date, date)
       .input('slot_id_booking', sql.Int, slot_id)  // Changed parameter name
       .query(`
-        INSERT INTO Booking (Roll_No, G_ID, B_Time, SlotID)
-        VALUES (@roll_no, @g_id, @b_time, @slot_id_booking)
+        INSERT INTO Booking (Roll_No, G_ID, B_Time, SlotID, Day)
+        VALUES (@roll_no, @g_id, @b_time, @slot_id_booking, @date)
       `);
-
-    // 3. Update slot status
-    await request
-      .input('slot_id_update', sql.Int, slot_id)  // Changed parameter name
-      .input('status', sql.VarChar, 'Booked')
-      .query('UPDATE Slots SET Status = @status WHERE SlotID = @slot_id_update');
 
     await transaction.commit();
     res.status(201).json({ message: 'Ground booked successfully' });
