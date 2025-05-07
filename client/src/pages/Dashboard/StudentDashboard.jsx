@@ -51,12 +51,6 @@ const StudentDashboard = () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">{student?.name}'s Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-        >
-          Logout
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-4 mb-6">

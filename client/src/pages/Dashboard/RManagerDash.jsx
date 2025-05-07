@@ -126,12 +126,6 @@ const ManagerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <button
-          onClick={handleLogout}
-          className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-        >
-          Logout
-        </button>
       <div className="bg-white p-6 rounded-xl shadow-lg max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold mb-4">Welcome, {manager.name}!</h1>
         <div className="mt-6 space-y-3">
