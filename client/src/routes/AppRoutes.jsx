@@ -16,12 +16,6 @@ import MgrRestView from "../pages/Dashboard/MgrRestView";
 import MgrPrintCafe from "../pages/Dashboard/MgrPrintCafe";
 import MgrBookShop from "../pages/Dashboard/MgrBookShop";
 
-
-// import Books from "../pages/Books";
-// import Grounds from "../pages/Grounds";
-// import BookOrders from "../pages/BookOrders";
-// import Cafeteria from "../pages/Cafeteria";
-
 const AppRoutes = () => {
   return (
     <Routes>
