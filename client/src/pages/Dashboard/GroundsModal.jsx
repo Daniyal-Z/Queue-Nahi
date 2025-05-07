@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-const GroundModal = ({ onClose, studentRollNo }) => {
+const GroundModal = ({ onClose }) => {
+  const [student, setStudent] = useState(null);
   const [grounds, setGrounds] = useState([]);
   const [selectedGround, setSelectedGround] = useState(null);
   const [slots, setSlots] = useState([]);
@@ -11,6 +12,9 @@ const GroundModal = ({ onClose, studentRollNo }) => {
   const [isBooking, setIsBooking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showBookings, setShowBookings] = useState(false);
+  const [bookings, setBookings] = useState([]);
+
 
   const authorizedFetch = async (url, options = {}) => {
     const token = localStorage.getItem('access_token');
@@ -42,9 +46,21 @@ const GroundModal = ({ onClose, studentRollNo }) => {
     return response;
   };
 
+  useEffect(() => {
+      const storedStudent = localStorage.getItem('student');
+      if (storedStudent) {
+        try {
+          setStudent(JSON.parse(storedStudent));
+        } catch (err) {
+          console.error("Failed to parse student data:", err);
+          handleLogout();
+        }
+      }
+    }, []);
+
   const fetchAvailableGrounds = async () => {
     try {
-      const res = await fetch("http://localhost:3001/grounds/available");
+      const res = await authorizedFetch("http://localhost:3001/grounds/available");
       if (!res.ok) throw new Error("Failed to fetch grounds");
       const data = await res.json();
       setGrounds(data);
@@ -61,10 +77,15 @@ const GroundModal = ({ onClose, studentRollNo }) => {
     try {
       if (!selectedGround?.G_ID) return;
   
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const url = `http://localhost:3001/grounds/${selectedGround.G_ID}/slots?date=${dateStr}`;
-      
-      const res = await fetch(url);
+      //const date = selectedDate.toISOString().split('T')[0];
+      const url = `http://localhost:3001/grounds/${selectedGround.G_ID}/slots`;
+
+      const res = await authorizedFetch(url, {
+        method: "POST",
+        body: JSON.stringify({
+          date: selectedDate.toISOString()
+        })
+      });
       
       
       if (!res.ok) {
@@ -101,11 +122,10 @@ const GroundModal = ({ onClose, studentRollNo }) => {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:3001/grounds/book", {
+      const res = await authorizedFetch("http://localhost:3001/grounds/book", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          roll_no: studentRollNo,
+          roll_no: student?.id,
           g_id: selectedGround.G_ID,
           slot_id: selectedSlot.SlotID,
           date: selectedDate.toISOString()
@@ -127,13 +147,30 @@ const GroundModal = ({ onClose, studentRollNo }) => {
     }
   };
 
+  const fetchBookings = async () => {
+    if (!student?.id) return;
+  
+    try {
+      const res = await authorizedFetch(`http://localhost:3001/students/${student.id}/ground-bookings`);
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+  
+      const data = await res.json();
+      setBookings(data);
+      setShowBookings(true);
+    } catch (err) {
+      console.error("Booking fetch error:", err);
+      alert(err.message || "Failed to load bookings");
+    }
+  };
+  
+
   useEffect(() => { fetchAvailableGrounds(); }, []);
   useEffect(() => { fetchAvailableSlots(); }, [selectedGround, selectedDate]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-lg">
-        <h2 className="text-xl font-semibold mb-4">Book Sports Ground</h2>
+        <h2 className="text-xl font-semibold mb-4">Book Sports Ground </h2>
         
         {!selectedGround ? (
           <GroundSelection 
@@ -156,8 +193,19 @@ const GroundModal = ({ onClose, studentRollNo }) => {
             error={error}
           />
         )}
+
+      <button
+        onClick={fetchBookings}
+        className="w-full bg-blue-100 hover:bg-blue-200 py-2 rounded mt-4"
+      >
+        View My Bookings
+      </button>
+
       </div>
+
+      {showBookings && <BookingPopup bookings={bookings} onClose={() => setShowBookings(false)} />}
     </div>
+    
   );
 };
 
@@ -285,5 +333,34 @@ const SlotSelection = ({
     </div>
   </>
 );
+
+const BookingPopup = ({ bookings, onClose }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-lg max-h-[80vh] overflow-y-auto">
+      <h2 className="text-xl font-semibold mb-4">My Ground Bookings</h2>
+      {bookings.length === 0 ? (
+        <p>No bookings found.</p>
+      ) : (
+        <ul className="space-y-3">
+          {bookings.map((b) => (
+            <li key={b.Booking_ID} className="border rounded p-3">
+              <div><strong>Ground:</strong> {b.Ground_Type}</div>
+              <div><strong>Date:</strong> {new Date(b.Day).toLocaleDateString()}</div>
+              <div><strong>Time Slot:</strong> {b.StartTime}:00 - {b.EndTime}:00</div>
+              <div><small className="text-gray-500">Booked on: {new Date(b.B_Time).toLocaleString()}</small></div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        onClick={onClose}
+        className="mt-4 bg-gray-200 hover:bg-gray-300 py-2 px-4 rounded"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+);
+
 
 export default GroundModal;

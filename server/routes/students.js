@@ -241,6 +241,35 @@ router.get('/:id/old-p_orders', authenticate, authorize(['student']), async (req
   }
 });
 
+// Get ground bookings
+router.get('/:id/ground-bookings', authenticate, authorize(['student']), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('roll_no', sql.Int, id)
+      .query(`
+        SELECT B.Booking_ID, B.Day, B.G_ID, G.Ground_Type, S.StartTime, S.EndTime, B.B_Time FROM Booking B 
+        INNER JOIN Grounds G
+        ON B.G_ID = G.G_ID
+        INNER JOIN Slots S
+        ON B.SlotID = S.SlotID
+        WHERE B.Roll_No = @roll_no
+        ORDER BY B_Time DESC;
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'No active unpaid print jobs found for this student.' });
+    }
+
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error("Error retrieving print jobs:", err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 
 // Add a new student
 router.post('/signup', async (req, res) => {
